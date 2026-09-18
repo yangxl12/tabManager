@@ -618,7 +618,9 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
           await Bookmarks.moveNode(id, parentId, i);
           i += 1;
         }
-        if (get().currentFolder !== parentId) get().gotoFolder(parentId);
+        // 搬运书签后停留在当前浏览的文件夹：只提示结果，不跟随跳到落点文件夹
+        const landed = get().bm.nodes[parentId]?.title ?? '';
+        get().toast(`已移至「${truncate(landed, 12)}」`);
         get().flashBms(movable);
       } catch (err) {
         set((s) => void (s.bm = snapshot));

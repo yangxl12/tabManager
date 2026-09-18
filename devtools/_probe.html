@@ -972,6 +972,11 @@
                 '搬进账号存储后归属重新标记',
                 `syncing=${bm.nodes['300'] && bm.nodes['300'].syncing}`,
               );
+              log(
+                W.__tabnest.getState().currentFolder === '3',
+                '搬运到别的文件夹后停留在原文件夹（不跟随跳转）',
+                `currentFolder=${W.__tabnest.getState().currentFolder}`,
+              );
             }
           }
         } catch (err) {
