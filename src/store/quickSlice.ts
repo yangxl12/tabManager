@@ -1,5 +1,5 @@
 import { uid } from '@/lib/id';
-import { KEYS, getLocal, setLocal } from '@/services/storage';
+import { KEYS, getLocalArray, setLocal } from '@/services/storage';
 import type { QuickSite } from '@/lib/types';
 import type { SliceCreator } from './slice';
 
@@ -61,9 +61,10 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
   },
 
   async initQuick() {
-    const stored = await getLocal<QuickSite[] | null>(KEYS.quickSites, null);
+    // 存储里非数组时回落空表：空表 = 保留默认站点，与「没存过」表现一致
+    const stored = await getLocalArray<QuickSite>(KEYS.quickSites);
     set((s) => {
-      if (Array.isArray(stored) && stored.length) s.quickSites = stored;
+      if (stored.length) s.quickSites = stored;
       s.quickLoaded = true;
     });
   },

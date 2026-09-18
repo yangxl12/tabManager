@@ -1048,7 +1048,17 @@
 
             btn.click();
             await sleep(300);
-            const opts = $$('.row-menu [data-row-item]').map((b) => b.getAttribute('data-row-item'));
+            // 只认主题菜单那一个 portal：前面步骤（书签行「三个点」）的菜单节点
+            // 可能还挂在 body 上（motion 出场动画在无头虚拟时间下不一定跑完），
+            // 全局查 `.row-menu [data-row-item]` 会把 rename/child/remove 一起捞进来
+            const themeMenu = $$('.row-menu')
+              .filter((m) => m.querySelector('[data-row-item="system"]'))
+              .pop();
+            const opts = themeMenu
+              ? [...themeMenu.querySelectorAll('[data-row-item]')].map((b) =>
+                  b.getAttribute('data-row-item'),
+                )
+              : [];
             log(opts.join() === 'light,dark,system', '主题菜单列出三种模式', opts.join() || '菜单没出来');
             log(
               !!$(`[data-row-item="${initial}"] .row-menu__ck`),

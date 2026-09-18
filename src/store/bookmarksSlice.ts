@@ -18,7 +18,7 @@ import {
 } from '@/lib/bookmarkTree';
 import { normalizeUrl } from '@/lib/url';
 import * as Bookmarks from '@/services/chromeBookmarks';
-import { KEYS, getLocal, hasChromeApi, setLocal } from '@/services/storage';
+import { KEYS, getLocal, getLocalArray, hasChromeApi, setLocal } from '@/services/storage';
 import type { BmNode, BmState, ImportItem, RawBmNode, UndoRecord } from '@/lib/types';
 import type { AutoEdit, FlashField, SliceCreator } from './slice';
 
@@ -111,15 +111,20 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       }
       await get().syncBookmarks();
       const [storedFolder, storedCollapsed] = await Promise.all([
-        getLocal<string>(KEYS.currentFolder, ''),
-        getLocal<string[]>(KEYS.collapsed, []),
+        // 非字符串也能安全兜底：下面靠 bm.nodes[id]?.isFolder 判定，取不到就回落默认
+        getLocal<unknown>(KEYS.currentFolder, ''),
+        // 存储里的值不可信（旧版本形状 / 被改过），非数组一律当空表，
+        // 否则这里一个 `.filter is not a function` 会把整个初始化打断
+        getLocalArray<string>(KEYS.collapsed),
       ]);
       set((s) => {
         const roots = treeRootIds(s.bm);
-        const valid = storedFolder && s.bm.nodes[storedFolder]?.isFolder ? storedFolder : roots[0] ?? '';
+        const picked = typeof storedFolder === 'string' ? storedFolder : '';
+        const valid = picked && s.bm.nodes[picked]?.isFolder ? picked : roots[0] ?? '';
         s.currentFolder = valid;
-        // 只记用户手动收起的那几个，其余一律默认展开
-        s.collapsed = storedCollapsed.filter((id) => s.bm.nodes[id]?.isFolder);
+        // 只记用户手动收起的那几个，其余一律默认展开；
+        // 元素本身也要过一遍 nodes，非字符串 / 已删除的文件夹自然被滤掉
+        s.collapsed = storedCollapsed.filter((id) => !!s.bm.nodes[id]?.isFolder);
         s.bmReady = true;
       });
 

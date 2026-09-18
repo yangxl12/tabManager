@@ -22,7 +22,8 @@ export const useStore = create<Store>()(
 );
 
 // dev 下挂到 window，方便在浏览器控制台/自动化脚本里直接查状态
-if (import.meta.env.DEV) {
+// （带 typeof 判定：模块要能在没有 DOM 的环境里被 import，例如 vitest 的 node 环境）
+if (import.meta.env.DEV && typeof window !== 'undefined') {
   (window as unknown as { __tabnest: unknown }).__tabnest = useStore;
 }
 

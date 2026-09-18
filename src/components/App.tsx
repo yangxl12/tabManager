@@ -33,7 +33,12 @@ export function App() {
   useDndRoot();
 
   useEffect(() => {
-    void bootstrapStore();
+    // 初始化挂了必须看得见：否则监听器不注册、页面停在半死状态，
+    // 控制台里只剩一条没人看的 promise rejection
+    void bootstrapStore().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      useStore.getState().toast(`初始化失败：${msg}`, { tone: 'warn', duration: 12000 });
+    });
   }, []);
 
   useEffect(() => {

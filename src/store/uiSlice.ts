@@ -1,6 +1,7 @@
 import { uid } from '@/lib/id';
 import { KEYS, getLocal, setLocal } from '@/services/storage';
 import { normalizeTheme, readMirrorTheme, type ThemeMode } from '@/lib/theme';
+import { asBool, asNumber } from '@/lib/validate';
 import type { ToastItem, ToastTone } from '@/lib/types';
 import type { SliceCreator } from './slice';
 
@@ -124,14 +125,15 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     }),
 
   initUi: async () => {
-    const [panelWidth, helpOpen, theme] = await Promise.all([
-      getLocal<number>(KEYS.panelWidth, DEFAULT_PANEL_WIDTH),
-      getLocal<boolean>(KEYS.helpOpen, false),
+    // 存储里的值不可信，逐项过一遍类型兜底（见 lib/validate.ts）
+    const [storedWidth, storedHelp, theme] = await Promise.all([
+      getLocal<unknown>(KEYS.panelWidth, DEFAULT_PANEL_WIDTH),
+      getLocal<unknown>(KEYS.helpOpen, false),
       getLocal<unknown>(KEYS.theme, readMirrorTheme()),
     ]);
     set((s) => {
-      s.panelWidth = Math.max(30, Math.min(70, panelWidth));
-      s.helpOpen = helpOpen;
+      s.panelWidth = Math.max(30, Math.min(70, asNumber(storedWidth, DEFAULT_PANEL_WIDTH)));
+      s.helpOpen = asBool(storedHelp, false);
       s.theme = normalizeTheme(theme);
     });
     void get();

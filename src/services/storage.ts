@@ -1,4 +1,5 @@
 /** chrome.storage.local 封装 + onChanged 广播 */
+import { asArray } from '@/lib/validate';
 
 /** chrome 扩展 API 是否可用（用纯浏览器打开 dev server 时为 false，仅渲染空壳） */
 export function hasChromeApi(): boolean {
@@ -19,6 +20,14 @@ export async function getLocal<T>(key: string, fallback: T): Promise<T> {
   } catch {
     return fallback;
   }
+}
+
+/**
+ * 读数组型偏好。存储里可能是任何东西（旧版本形状 / 被手动改过 / 环境写坏），
+ * 非数组一律回落到 fallback —— 绝不能让 `.filter` 之类的调用炸在初始化路径上。
+ */
+export async function getLocalArray<T>(key: string, fallback: T[] = []): Promise<T[]> {
+  return asArray<T>(await getLocal<unknown>(key, fallback), fallback);
 }
 
 export async function setLocal(key: string, value: unknown): Promise<void> {
