@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   value: string;
-  /** 非编辑态展示的文案（默认与 value 相同，例如域名只显示 host） */
+  /** 非编辑态展示的文案（默认与 value 相同，例如网址只显示 host） */
   displayValue?: string;
   placeholder: string;
   /** 非编辑态的外层 class */
@@ -16,16 +16,20 @@ interface Props {
   revertOnEmpty?: boolean;
   /** 空值时显示 CSS 占位（data-empty） */
   emptyStyle?: boolean;
+  /** 非编辑态的原生 tooltip（长标题被截断时能看到全文） */
   title?: string;
-  onStart: () => void;
   onCommit: (value: string) => void;
-  /** Esc 取消（返回 false 由调用方决定是否退出编辑态） */
+  /** Esc 取消 */
   onCancel?: () => void;
   /** 空值 blur 触发的「恢复原状」回调，用于把焦点交给下一个字段 */
   onRevert?: () => void;
 }
 
-/** 行内编辑：文字原位换 input，blur / Enter 提交，Esc 取消 */
+/**
+ * 行内编辑：编辑态原位换 input，blur / Enter 提交，Esc 取消。
+ * 非编辑态是**纯展示**元素——不拦截点击，点击冒泡给卡片（= 打开书签）；
+ * 进编辑态只能由外部把 editing 置 true（书签卡片走右下角编辑图标）。
+ */
 export function InlineEdit({
   value,
   displayValue,
@@ -37,7 +41,6 @@ export function InlineEdit({
   revertOnEmpty,
   emptyStyle,
   title,
-  onStart,
   onCommit,
   onCancel,
   onRevert,
@@ -71,18 +74,7 @@ export function InlineEdit({
 
   if (!editing) {
     return (
-      <div
-        className={className}
-        title={title}
-        {...(emptyStyle && !value ? { 'data-empty': '1' } : {})}
-        onMouseDown={(e) => {
-          e.stopPropagation();
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onStart();
-        }}
-      >
+      <div className={className} title={title} {...(emptyStyle && !value ? { 'data-empty': '1' } : {})}>
         {displayValue ?? value}
       </div>
     );

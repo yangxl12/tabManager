@@ -352,6 +352,39 @@
             );
           }
 
+          /* 单击名称 / 网址 = 开新标签（文字不再是编辑入口） */
+          {
+            const tabs0 = $$('[data-tab-card]').length;
+            inp('.bm-card__name').click();
+            await sleep(500);
+            log(!inp('input'), '点名称不再进入编辑态');
+            log(
+              $$('[data-tab-card]').length === tabs0 + 1,
+              '点名称打开新标签页',
+              `${tabs0} → ${$$('[data-tab-card]').length}`,
+            );
+            const tabs1 = $$('[data-tab-card]').length;
+            inp('.bm-card__host').click();
+            await sleep(500);
+            log(!inp('input'), '点网址不再进入编辑态');
+            log(
+              $$('[data-tab-card]').length === tabs1 + 1,
+              '点网址打开新标签页',
+              `${tabs1} → ${$$('[data-tab-card]').length}`,
+            );
+            // 收尾：关掉这两张测试标签，别扰动后面按数量断言的用例
+            for (let i = 0; i < 2; i++) {
+              const last = $$('[data-tab-card]').at(-1);
+              if (last) last.querySelector('.xbtn').click();
+              await sleep(600);
+            }
+            log(
+              $$('[data-tab-card]').length === tabs0,
+              '关掉测试开出的两个标签，张数还原',
+              `实际 ${$$('[data-tab-card]').length} / 期望 ${tabs0}`,
+            );
+          }
+
           /* ---------- 全局书签搜索弹窗 ---------- */
           {
             $('.bm-search-btn').click();
@@ -790,7 +823,7 @@
             }
           }
 
-          /* ---------- 书签名/域名 hover：不再整行铺灰底 ---------- */
+          /* ---------- 书签名/网址是纯展示文本：不该再有「可编辑」hover 提示 ---------- */
           {
             const flat = [];
             const walk = (rules) => {
@@ -807,23 +840,11 @@
               }
             }
             const hoverRules = flat.filter((r) => /\.bm-card__(?:name|host):hover/.test(r.selectorText));
-            log(hoverRules.length > 0, '找到书签名/域名 hover 规则', hoverRules.map((r) => r.selectorText).join(' / '));
             log(
-              hoverRules.every((r) => !r.style.background || r.style.background === 'none'),
-              'hover 规则不含背景色',
-              hoverRules.map((r) => r.style.background || '(none)').join(' / '),
+              hoverRules.length === 0,
+              '书签名/网址不再有「可编辑」hover 规则',
+              hoverRules.map((r) => r.selectorText).join(' / ') || '(none)',
             );
-            const shortName = $$('.bm-card__name').find(
-              (n) => n.scrollWidth > 10 && n.scrollWidth < n.parentElement.clientWidth - 12,
-            );
-            log(!!shortName, '存在未占满整行的书签名', shortName ? shortName.textContent : '未找到');
-            if (shortName) {
-              log(
-                shortName.clientWidth - shortName.scrollWidth <= 8,
-                '书签名盒子贴合文字宽度（下划线不会横贯整行）',
-                `client=${shortName.clientWidth} scroll=${shortName.scrollWidth} meta=${shortName.parentElement.clientWidth}`,
-              );
-            }
           }
 
           /* ---------- 真实原生拖拽（合成 DragEvent 走 pdnd 全链路） ---------- */

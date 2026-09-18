@@ -992,18 +992,14 @@ textarea {
   margin: 0;
   padding: 1px 3px;
 }
-/* 只在文字本身下方提示「可点击改名/改网址」，不再整行铺灰底 */
-.bm-card__name:hover,
-.bm-card__host:hover {
-  box-shadow: inset 0 -1px 0 #d9d3c8;
-}
+/* 名称/网址是纯展示文本：点击冒泡给卡片 = 打开书签，所以取消「可编辑」下划线提示 */
 .bm-card__name[data-empty]::before {
   content: '未命名书签';
   color: var(--color-faint);
   font-weight: 500;
 }
 .bm-card__host[data-empty]::before {
-  content: '点击添加网址';
+  content: '未填写网址';
   color: #c6bfb3;
 }
 /* 右下角编辑按钮：点击后名称 + 网址同时变输入框 */
@@ -1049,11 +1045,6 @@ textarea {
 .bm-card:hover .xbtn,
 .bm-card .xbtn:hover {
   opacity: 1;
-}
-.bm-grid.select-mode .bm-card__name:hover,
-.bm-grid.select-mode .bm-card__host:hover {
-  background: none;
-  box-shadow: none;
 }
 /* 多选模式下点卡片是勾选语义，编辑入口整体收起 */
 .bm-grid.select-mode .bm-card .bm-card__edit {

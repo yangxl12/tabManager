@@ -133,8 +133,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
               active={field === 'name'}
               revertOnEmpty
               emptyStyle
-              title="点击修改名称"
-              onStart={() => startEdit('name')}
+              title={node.title || undefined}
               onCancel={exitEdit}
               onRevert={() => setField('url')}
               onCommit={(v) => {
@@ -167,8 +166,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
               active={field === 'url'}
               revertOnEmpty
               emptyStyle
-              title="点击修改网址"
-              onStart={() => startEdit('url')}
+              title={node.url || undefined}
               onCancel={exitEdit}
               onRevert={exitEdit}
               onCommit={(v) => {
