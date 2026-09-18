@@ -42,6 +42,114 @@
   --ease-nest: cubic-bezier(0.22, 0.8, 0.28, 1);
 }
 
+/* ============================================================
+   派生 token（不写进 @theme：这几个只在 CSS 内部用，普通变量最稳）
+   --color-elevated  浮层 / 输入框底色（比 panel 再上一层；浅色下就是纯白）
+   --color-edge      浮层描边（比 --color-line 略明显）
+   --color-on-acc    铺在彩色实底上的前景（勾、实心按钮文字）
+   --color-mask      弹窗遮罩
+   --color-mark      搜索命中的高亮底
+   ============================================================ */
+:root {
+  color-scheme: light;
+  --color-elevated: #ffffff;
+  --color-edge: #ddd7cc;
+  --color-on-acc: #ffffff;
+  --color-mask: rgba(30, 25, 18, 0.34);
+  --color-mark: #ffe9a8;
+}
+
+/* ============================================================
+   暗色主题
+   <html data-theme> / <html data-theme-mode> 由 src/lib/theme.ts 写。
+   规则与浅色一致：照旧不引入阴影 / 渐变，层次只靠底色深浅 ——
+   越靠上的面越亮：bg < panel < panel-soft < surface < elevated < hover < hover-2。
+
+   暗色 token 有「两份一模一样的声明」，是媒体查询倒逼的结果：
+   MV3 扩展页禁止内联脚本（CSP），首屏那一帧 React 还没落地、data-theme 还没写，
+   只能靠 @media 兜底，而媒体查询条件没法跟属性选择器合并成同一条规则。
+     · 媒体查询那份：仅在用户没选「明亮」时生效 → 首屏兜底 + 跟随系统
+     · 属性那份：用户显式选「暗黑」
+   两份必须逐字一致 —— devtools/_probe.html 里有断言逐项比对，别只改一处。
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme-mode='light']) {
+    color-scheme: dark;
+
+    --color-bg: #121110;
+    --color-panel: #1c1a18;
+    --color-panel-soft: #232120;
+    --color-surface: #272523;
+    --color-elevated: #2b2926;
+    --color-hover: #302d2a;
+    --color-hover-2: #34312d;
+
+    --color-ink: #ebe8e2;
+    --color-ink-2: #bcb6ac;
+    --color-muted: #8f897f;
+    --color-faint: #6a655d;
+    --color-line: #302d29;
+    --color-line-2: #262320;
+    --color-edge: #3b3733;
+
+    /* 彩色一律提亮：深底上还要当文字色 / 3px 色条用 */
+    --color-jade: #35b48f;
+    --color-jade-soft: #17332c;
+    --color-blue: #5b9df0;
+    --color-blue-soft: #1a2740;
+    --color-amber: #dfa63f;
+    --color-amber-soft: #33280f;
+    --color-danger: #ee6a5f;
+    --color-danger-soft: #3a1d19;
+
+    /* 亮色的彩底上改成深色前景，对比才够 */
+    --color-on-acc: #14120f;
+    --color-mask: rgba(0, 0, 0, 0.6);
+    --color-mark: #453412;
+  }
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg: #121110;
+  --color-panel: #1c1a18;
+  --color-panel-soft: #232120;
+  --color-surface: #272523;
+  --color-elevated: #2b2926;
+  --color-hover: #302d2a;
+  --color-hover-2: #34312d;
+
+  --color-ink: #ebe8e2;
+  --color-ink-2: #bcb6ac;
+  --color-muted: #8f897f;
+  --color-faint: #6a655d;
+  --color-line: #302d29;
+  --color-line-2: #262320;
+  --color-edge: #3b3733;
+
+  /* 彩色一律提亮：深底上还要当文字色 / 3px 色条用 */
+  --color-jade: #35b48f;
+  --color-jade-soft: #17332c;
+  --color-blue: #5b9df0;
+  --color-blue-soft: #1a2740;
+  --color-amber: #dfa63f;
+  --color-amber-soft: #33280f;
+  --color-danger: #ee6a5f;
+  --color-danger-soft: #3a1d19;
+
+  /* 亮色的彩底上改成深色前景，对比才够 */
+  --color-on-acc: #14120f;
+  --color-mask: rgba(0, 0, 0, 0.6);
+  --color-mark: #453412;
+}
+
+/* 「新建」这类实心深色按钮：暗色下反相，hover 再亮一档 */
+html[data-theme='dark'] .btn--dark:hover {
+  background: #ffffff;
+  color: #14120f;
+}
+
 #root {
   height: 100%;
 }
@@ -78,28 +186,28 @@ textarea {
   color: inherit;
 }
 ::selection {
-  background: #bfe6da;
-  color: #123;
+  background: var(--color-jade-soft);
+  color: var(--color-ink);
 }
 
 .scroll {
   overflow: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #dcd6cb transparent;
+  scrollbar-color: var(--color-line) transparent;
 }
 .scroll::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 .scroll::-webkit-scrollbar-thumb {
-  background: #dfd9ce;
+  background: var(--color-line);
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 10px;
 }
 .scroll::-webkit-scrollbar-thumb:hover {
-  background: #c9c1b4;
+  background: var(--color-faint);
   background-clip: content-box;
 }
 .scroll::-webkit-scrollbar-track {
@@ -245,7 +353,7 @@ textarea {
 }
 .btn--dark {
   background: var(--color-ink);
-  color: #fff;
+  color: var(--color-panel);
 }
 .btn--dark:hover {
   background: #000;
@@ -257,7 +365,7 @@ textarea {
 }
 .btn--danger:hover {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-on-acc);
 }
 .btn--ghost {
   background: transparent;
@@ -283,14 +391,14 @@ textarea {
 }
 .btn--sel:hover {
   background: var(--sec);
-  color: #fff;
+  color: var(--color-on-acc);
 }
 
 /* ============================================================
    Quick sites
    ============================================================ */
 .pane-quick {
-  --sec: #c77d18;
+  --sec: var(--color-amber);
   --sec-soft: var(--color-amber-soft);
   flex: none;
   padding-bottom: 13px;
@@ -352,7 +460,7 @@ textarea {
 }
 .quick-tile--add .quick-tile__ic {
   background: none;
-  border: 1px dashed #d6d0c4;
+  border: 1px dashed var(--color-faint);
   color: var(--color-faint);
   font-weight: 400;
   font-size: 24px;
@@ -381,7 +489,7 @@ textarea {
   min-width: 0;
 }
 .quick-form .fld:focus {
-  background: #fff;
+  background: var(--color-elevated);
   border-color: var(--color-jade);
 }
 @keyframes slideDown {
@@ -395,7 +503,7 @@ textarea {
    Tab grid
    ============================================================ */
 .pane-tabs {
-  --sec: #2c6fdb;
+  --sec: var(--color-blue);
   --sec-soft: var(--color-blue-soft);
   flex: 1;
   min-height: 0;
@@ -547,8 +655,8 @@ textarea {
   width: 17px;
   height: 17px;
   border-radius: 5px;
-  border: 1.5px solid #d8d2c7;
-  background: #fff;
+  border: 1.5px solid var(--color-faint);
+  background: var(--color-elevated);
   flex: none;
   position: relative;
   transition: 0.16s var(--ease-nest);
@@ -568,8 +676,8 @@ textarea {
   top: 2.5px;
   width: 4px;
   height: 7.5px;
-  border-right: 2px solid #fff;
-  border-bottom: 2px solid #fff;
+  border-right: 2px solid var(--color-on-acc);
+  border-bottom: 2px solid var(--color-on-acc);
   transform: rotate(43deg);
   border-radius: 1px;
 }
@@ -596,7 +704,7 @@ textarea {
    Bookmarks
    ============================================================ */
 .pane-tree {
-  --sec: #0f8a6b;
+  --sec: var(--color-jade);
   --sec-soft: var(--color-jade-soft);
   width: 220px;
   flex: none;
@@ -702,8 +810,8 @@ textarea {
 .row-menu {
   position: fixed;
   z-index: 240;
-  background: #fff;
-  border: 1px solid #ddd7cc;
+  background: var(--color-elevated);
+  border: 1px solid var(--color-edge);
   border-radius: 10px;
   padding: 5px;
   display: flex;
@@ -733,7 +841,7 @@ textarea {
 }
 .row-menu__item.is-danger:hover {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-on-acc);
 }
 .row-menu__ic {
   display: grid;
@@ -741,9 +849,16 @@ textarea {
   flex: none;
   opacity: 0.92;
 }
+/* 单选菜单（主题选择）当前项右侧的勾 */
+.row-menu__ck {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  color: var(--color-jade);
+}
 
 .pane-main {
-  --sec: #0f8a6b;
+  --sec: var(--color-jade);
   --sec-soft: var(--color-jade-soft);
   flex: 1;
   min-width: 0;
@@ -753,7 +868,7 @@ textarea {
   position: relative;
 }
 .pane-main.drop-ready {
-  background: #f5fbf9;
+  background: var(--color-jade-soft);
 }
 .pane-main.drop-ready::after {
   content: '';
@@ -768,7 +883,7 @@ textarea {
   content: '';
   position: absolute;
   inset: 8px;
-  border: 1.5px dashed rgba(15, 138, 107, 0.45);
+  border: 1.5px dashed color-mix(in srgb, var(--color-jade) 45%, transparent);
   border-radius: 12px;
   pointer-events: none;
 }
@@ -780,7 +895,7 @@ textarea {
   z-index: 5;
   pointer-events: none;
   background: var(--color-jade);
-  color: #fff;
+  color: var(--color-on-acc);
   font-size: 13px;
   font-weight: 600;
   padding: 11px 20px;
@@ -811,7 +926,7 @@ textarea {
   text-decoration: underline;
 }
 .crumb .sep {
-  color: #cfc8bc;
+  color: var(--color-faint);
 }
 .crumb .cur {
   color: var(--color-ink);
@@ -906,8 +1021,8 @@ textarea {
   animation: flash 1s var(--ease-nest);
 }
 .bm-card.is-draft {
-  box-shadow: inset 0 0 0 1px #dcd6cb;
-  background: #fffdf9;
+  box-shadow: inset 0 0 0 1px var(--color-faint);
+  background: var(--color-elevated);
 }
 .bm-card.is-draft::after {
   content: '未保存';
@@ -925,7 +1040,7 @@ textarea {
 }
 @keyframes flash {
   0% {
-    background: #e7f4f0;
+    background: var(--color-jade-soft);
   }
   60% {
     background: var(--color-hover);
@@ -1000,7 +1115,7 @@ textarea {
 }
 .bm-card__host[data-empty]::before {
   content: '未填写网址';
-  color: #c6bfb3;
+  color: var(--color-faint);
 }
 /* 右下角编辑按钮：点击后名称 + 网址同时变输入框 */
 .bm-card__edit,
@@ -1062,7 +1177,7 @@ textarea {
   width: 100%;
   border: 0;
   outline: none;
-  background: #fff;
+  background: var(--color-elevated);
   font-size: 12.5px;
   font-weight: 600;
   color: var(--color-ink);
@@ -1075,10 +1190,10 @@ textarea {
 .mini-input.soft {
   font-size: 11px;
   font-weight: 500;
-  box-shadow: inset 0 0 0 1.5px #d8d2c7;
+  box-shadow: inset 0 0 0 1.5px var(--color-line);
 }
 .mini-input.ghost {
-  box-shadow: inset 0 0 0 1.5px rgba(15, 138, 107, 0.55);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-jade) 55%, transparent);
 }
 
 .empty {
@@ -1157,7 +1272,7 @@ body.resizing * {
 .fx-ring {
   position: fixed;
   border-radius: 15px;
-  border: 2px solid var(--sec, #0f8a6b);
+  border: 2px solid var(--sec, var(--color-jade));
   transition:
     transform 0.42s ease-out,
     opacity 0.42s ease-out;
@@ -1247,12 +1362,12 @@ body.resizing * {
 .modal__mask {
   position: absolute;
   inset: 0;
-  background: rgba(30, 25, 18, 0.34);
+  background: var(--color-mask);
 }
 .modal__box {
   position: relative;
   width: min(520px, 92vw);
-  background: #fff;
+  background: var(--color-elevated);
   border: 1px solid var(--color-line);
   border-radius: 14px;
   padding: 20px;
@@ -1300,7 +1415,7 @@ body.resizing * {
   transition: 0.16s var(--ease-nest);
 }
 .seg button.on {
-  background: #fff;
+  background: var(--color-elevated);
   color: var(--color-ink);
 }
 .code {
@@ -1325,11 +1440,11 @@ body.resizing * {
   transition: 0.16s var(--ease-nest);
 }
 .modal textarea:focus {
-  background: #fff;
+  background: var(--color-elevated);
   border-color: var(--color-jade);
 }
 .dropzone {
-  border: 1.5px dashed #dcd6cb;
+  border: 1.5px dashed var(--color-faint);
   border-radius: 12px;
   padding: 26px;
   text-align: center;
@@ -1367,8 +1482,8 @@ body.resizing * {
   top: 20px;
   right: 24px;
   width: 312px;
-  background: #fff;
-  border: 1px solid #ddd7cc;
+  background: var(--color-elevated);
+  border: 1px solid var(--color-edge);
   border-radius: 12px;
   padding: 15px;
 }
@@ -1423,7 +1538,7 @@ kbd {
   width: 34px;
   height: 19px;
   border-radius: 20px;
-  background: #dcd6cb;
+  background: var(--color-line);
   flex: none;
   transition: 0.2s var(--ease-nest);
 }
@@ -1526,7 +1641,7 @@ kbd {
   color: var(--color-faint);
 }
 .bmsearch__field:focus-within {
-  background: #fff;
+  background: var(--color-elevated);
   border-color: var(--color-jade);
 }
 /* 输入框里的 X 只清空内容，关弹窗走右上角那个 */
@@ -1592,8 +1707,8 @@ kbd {
   text-overflow: ellipsis;
 }
 .bmsearch__name mark {
-  background: #ffe9a8;
-  color: inherit;
+  background: var(--color-mark);
+  color: var(--color-ink);
   border-radius: 3px;
   padding: 0 1px;
 }
@@ -1624,6 +1739,19 @@ kbd {
 .sec-ops .help-btn {
   width: 30px;
   height: 27px;
+}
+/* 右上角主题入口：复用「三个点」菜单的弹层逻辑，外观跟旁边的图标按钮一致。
+   必须写在 .row-menu__btn 之后（同权重靠后覆盖）。 */
+.sec-ops .theme-btn {
+  width: 30px;
+  height: 27px;
+  border-radius: 9px;
+  color: var(--color-muted);
+  background: transparent;
+}
+.sec-ops .theme-btn:hover {
+  color: var(--color-ink);
+  background: var(--color-hover);
 }
 
 [hidden] {

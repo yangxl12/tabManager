@@ -134,6 +134,33 @@ export function IconHelp({ size = 15, className }: IconProps) {
   );
 }
 
+export function IconSun({ size = 14, className }: IconProps) {
+  return (
+    <svg {...S(size)} strokeWidth={1.6} className={className}>
+      <circle cx="8" cy="8" r="3.1" />
+      <path d="M8 1.7v1.7M8 12.6v1.7M1.7 8h1.7M12.6 8h1.7M3.55 3.55l1.2 1.2M11.25 11.25l1.2 1.2M12.45 3.55l-1.2 1.2M4.75 11.25l-1.2 1.2" />
+    </svg>
+  );
+}
+
+export function IconMoon({ size = 14, className }: IconProps) {
+  return (
+    <svg {...S(size)} strokeWidth={1.6} className={className}>
+      <path d="M13.3 9.7A5.7 5.7 0 0 1 6.3 2.7a5.7 5.7 0 1 0 7 7z" />
+    </svg>
+  );
+}
+
+/** 跟随系统：显示器 */
+export function IconThemeAuto({ size = 14, className }: IconProps) {
+  return (
+    <svg {...S(size)} strokeWidth={1.6} className={className}>
+      <rect x="1.9" y="2.9" width="12.2" height="8.4" rx="1.6" />
+      <path d="M6.1 13.4h3.8M8 11.3v2.1" />
+    </svg>
+  );
+}
+
 export function IconBrand({ size = 24, className }: IconProps) {
   return (
     <svg

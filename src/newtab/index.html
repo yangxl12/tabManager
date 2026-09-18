@@ -7,6 +7,8 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- 这里只能放 module 脚本：crxjs 会把 html 内所有 <script src> 当入口动态 import，
+         塞普通脚本（例如 public/ 下那种）会让整页加载失败。主题首屏防闪见 styles/theme.css -->
     <script type="module" src="./main.tsx"></script>
   </body>
 </html>

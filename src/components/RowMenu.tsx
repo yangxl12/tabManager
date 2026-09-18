@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { IconDots } from './icons';
+import { IconCheck, IconDots } from './icons';
 
 export interface RowMenuItem {
   key: string;
   label: string;
   icon: ReactNode;
   danger?: boolean;
+  /** 单选菜单（例如主题）：当前项右侧打勾 */
+  checked?: boolean;
   onPick: () => void;
 }
 
@@ -17,6 +19,10 @@ interface Props {
   title?: string;
   /** 写到按钮上的 data-row-menu，方便无头探针定位 */
   marker?: string;
+  /** 触发按钮里的图标，默认「三个点」（主题菜单要显示当前模式，见 ThemeMenu） */
+  trigger?: ReactNode;
+  /** 追加到触发按钮上的类名 */
+  btnClass?: string;
 }
 
 const MENU_W = 152;
@@ -27,8 +33,9 @@ const EDGE = 8;
  * 列表项右侧的「三个点」菜单。
  * 菜单用 portal 挂到 body：书签树在 .scroll（overflow:auto）里、面板本身也 overflow:hidden，
  * 就地渲染会被裁掉；portal + position:fixed 才能稳定浮在最上层。
+ * 触发按钮的图标 / 类名可替换，主题选择（ThemeMenu）复用同一套弹层逻辑。
  */
-export function RowMenu({ items, title = '更多操作', marker }: Props) {
+export function RowMenu({ items, title = '更多操作', marker, trigger, btnClass }: Props) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -81,7 +88,7 @@ export function RowMenu({ items, title = '更多操作', marker }: Props) {
     <>
       <button
         ref={btnRef}
-        className={`row-menu__btn${open ? ' is-open' : ''}`}
+        className={`row-menu__btn${open ? ' is-open' : ''}${btnClass ? ` ${btnClass}` : ''}`}
         title={title}
         aria-label={title}
         aria-haspopup="menu"
@@ -93,7 +100,7 @@ export function RowMenu({ items, title = '更多操作', marker }: Props) {
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <IconDots size={14} />
+        {trigger ?? <IconDots size={14} />}
       </button>
 
       {createPortal(
@@ -117,6 +124,7 @@ export function RowMenu({ items, title = '更多操作', marker }: Props) {
                 <button
                   key={it.key}
                   role="menuitem"
+                  data-row-item={it.key}
                   className={`row-menu__item${it.danger ? ' is-danger' : ''}`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -126,6 +134,11 @@ export function RowMenu({ items, title = '更多操作', marker }: Props) {
                 >
                   <span className="row-menu__ic">{it.icon}</span>
                   {it.label}
+                  {it.checked ? (
+                    <span className="row-menu__ck">
+                      <IconCheck size={13} />
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </motion.div>

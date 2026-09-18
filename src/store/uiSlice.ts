@@ -1,5 +1,6 @@
 import { uid } from '@/lib/id';
 import { KEYS, getLocal, setLocal } from '@/services/storage';
+import { normalizeTheme, readMirrorTheme, type ThemeMode } from '@/lib/theme';
 import type { ToastItem, ToastTone } from '@/lib/types';
 import type { SliceCreator } from './slice';
 
@@ -31,12 +32,15 @@ export interface UiSlice {
   helpOpen: boolean;
   /** 全局书签搜索弹窗 */
   searchOpen: boolean;
+  /** 主题模式；真正落到 <html> 由 App 统一处理 */
+  theme: ThemeMode;
   panelWidth: number;
   toasts: ToastItem[];
   drag: DragState;
   setSearchOpen: (v: boolean) => void;
   toggleHelp: () => void;
   setHelpOpen: (v: boolean) => void;
+  setTheme: (m: ThemeMode) => void;
   setPanelWidth: (w: number) => void;
   setDrag: (patch: Partial<DragState>) => void;
   resetDrag: () => void;
@@ -59,6 +63,9 @@ const DEFAULT_PANEL_WIDTH = 46;
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   helpOpen: false,
   searchOpen: false,
+  // 初值直接取 localStorage 镜像：与首屏 boot-theme.js 算出的一致，
+  // 否则 React 会先用「跟随系统」把暗色抹掉一帧（chrome.storage 是异步的，来不及）
+  theme: readMirrorTheme(),
   panelWidth: DEFAULT_PANEL_WIDTH,
   toasts: [],
   drag: EMPTY_DRAG,
@@ -79,6 +86,12 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     set((s) => {
       s.helpOpen = v;
       void setLocal(KEYS.helpOpen, v);
+    }),
+
+  setTheme: (m) =>
+    set((s) => {
+      s.theme = m;
+      void setLocal(KEYS.theme, m);
     }),
 
   setPanelWidth: (w) =>
@@ -111,13 +124,15 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     }),
 
   initUi: async () => {
-    const [panelWidth, helpOpen] = await Promise.all([
+    const [panelWidth, helpOpen, theme] = await Promise.all([
       getLocal<number>(KEYS.panelWidth, DEFAULT_PANEL_WIDTH),
       getLocal<boolean>(KEYS.helpOpen, false),
+      getLocal<unknown>(KEYS.theme, readMirrorTheme()),
     ]);
     set((s) => {
       s.panelWidth = Math.max(30, Math.min(70, panelWidth));
       s.helpOpen = helpOpen;
+      s.theme = normalizeTheme(theme);
     });
     void get();
   },

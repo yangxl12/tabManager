@@ -3,6 +3,7 @@ import { useStore } from '@/store';
 import { childrenOf, countOf, pathOf } from '@/lib/bookmarkTree';
 import { EmptyBmsArt, IconFolder, IconPlus, IconSearch, IconUpload } from './icons';
 import { BookmarkCard } from './BookmarkCard';
+import { ThemeMenu } from './ThemeMenu';
 import { useAutoScroll, useExternalFileTarget, useFolderTarget, usePaneTarget } from '@/dnd/dnd';
 
 function SubChip({ id }: { id: string }) {
@@ -103,6 +104,7 @@ export function BookmarkGrid({
           >
             <IconSearch size={15} />
           </button>
+          <ThemeMenu />
           {selected.length > 0 ? (
             <>
               <button className="btn btn--sm btn--ghost" onClick={clearBmSel}>

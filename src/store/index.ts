@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { KEYS, subscribeLocal } from '@/services/storage';
+import { normalizeTheme } from '@/lib/theme';
 import type { QuickSite } from '@/lib/types';
 import { createBookmarksSlice, type BookmarksSlice } from './bookmarksSlice';
 import { QUICK_LIMIT, createQuickSlice, type QuickSlice } from './quickSlice';
@@ -47,6 +48,10 @@ export async function bootstrapStore(): Promise<void> {
     if (changes[KEYS.helpOpen]) {
       const next = changes[KEYS.helpOpen].newValue as boolean | undefined;
       if (typeof next === 'boolean') useStore.setState((st) => void (st.helpOpen = next));
+    }
+    if (changes[KEYS.theme]) {
+      const next = normalizeTheme(changes[KEYS.theme].newValue);
+      useStore.setState((st) => void (st.theme = next));
     }
   });
 }

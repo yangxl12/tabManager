@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { bootstrapStore, useStore } from '@/store';
+import { applyTheme } from '@/lib/theme';
 import { initFxLayer } from '@/lib/fx';
 import { Toasts } from './Toasts';
 import { QuickSites } from './QuickSites';
@@ -25,6 +26,7 @@ export function App() {
   const panelWidth = useStore((s) => s.panelWidth);
   const searchOpen = useStore((s) => s.searchOpen);
   const setSearchOpen = useStore((s) => s.setSearchOpen);
+  const theme = useStore((s) => s.theme);
   const [narrow, setNarrow] = useState(() => window.innerWidth <= 1080);
   const [imp, setImp] = useState<ImportState>(CLOSED);
 
@@ -44,6 +46,17 @@ export function App() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // 主题落到 <html data-theme>（+ 刷新 localStorage 镜像）；
+  // 「跟随系统」时还要跟着系统偏好实时切换
+  useEffect(() => {
+    applyTheme(theme);
+    if (theme !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSystem = () => applyTheme('system');
+    mq.addEventListener('change', onSystem);
+    return () => mq.removeEventListener('change', onSystem);
+  }, [theme]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

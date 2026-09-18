@@ -992,6 +992,121 @@
               );
             }
           }
+          /* ---------- 主题（明亮 / 暗黑 / 跟随系统） ---------- */
+          {
+            const rgbDark = (v) => {
+              const m = String(v).match(/(\d+),\s*(\d+),\s*(\d+)/);
+              return !!m && +m[1] + +m[2] + +m[3] < 260;
+            };
+            const mode = () => W.__tabnest.getState().theme;
+            const initial = mode();
+            const btn = $('[data-row-menu="theme"]');
+            log(!!btn, '主题入口在书签面板标题行右上角');
+            const initialBg = W.getComputedStyle(D.body).backgroundColor;
+            log(
+              rgbDark(initialBg) === (D.documentElement.dataset.theme === 'dark'),
+              '首屏底色与 html[data-theme] 一致（防闪烁那步生效）',
+              `theme=${D.documentElement.dataset.theme} bg=${initialBg}`,
+            );
+
+            // 暗色 token 有两份声明（媒体查询兜底 + 属性选择器），必须逐字一致：
+            // 媒体查询那份负责「React 还没落地」的首屏，属性那份负责显式选暗。
+            {
+              const bags = { media: new Map(), attr: new Map() };
+              const scan = (rules, inMedia) => {
+                for (const r of rules) {
+                  if (r.media) scan(r.cssRules, true);
+                  else if (r.selectorText && /data-theme/.test(r.selectorText)) {
+                    const bag = inMedia ? bags.media : bags.attr;
+                    for (const p of r.style) {
+                      if (p.startsWith('--color-')) bag.set(p, r.style.getPropertyValue(p).trim());
+                    }
+                  }
+                }
+              };
+              for (const sheet of D.styleSheets) {
+                try {
+                  scan(sheet.cssRules, false);
+                } catch {
+                  /* 跨域表跳过 */
+                }
+              }
+              const keys = [...bags.attr.keys()];
+              const diff = keys.filter((k) => bags.media.get(k) !== bags.attr.get(k));
+              log(
+                keys.length >= 20 && diff.length === 0,
+                '暗色 token 两份声明逐项一致（媒体查询 / 属性）',
+                diff.length
+                  ? diff.map((k) => `${k}: ${bags.media.get(k)} vs ${bags.attr.get(k)}`).join(' | ')
+                  : `${keys.length} 项一致`,
+              );
+              log(
+                !!W.getComputedStyle(D.documentElement).getPropertyValue('--color-elevated').trim(),
+                '派生 token 已定义（--color-elevated：浮层/输入框底色）',
+              );
+            }
+
+            btn.click();
+            await sleep(300);
+            const opts = $$('.row-menu [data-row-item]').map((b) => b.getAttribute('data-row-item'));
+            log(opts.join() === 'light,dark,system', '主题菜单列出三种模式', opts.join() || '菜单没出来');
+            log(
+              !!$(`[data-row-item="${initial}"] .row-menu__ck`),
+              `当前模式（${initial}）带勾选标记`,
+            );
+            const other = initial === 'dark' ? 'light' : 'dark';
+            log(!$(`[data-row-item="${other}"] .row-menu__ck`), `非当前模式（${other}）不打勾`);
+
+            $('[data-row-item="dark"]').click();
+            await sleep(340);
+            log(mode() === 'dark', '选「暗黑」写入 store', `theme=${mode()}`);
+            log(
+              D.documentElement.dataset.theme === 'dark',
+              '选「暗黑」→ html[data-theme=dark]',
+              `dataset=${D.documentElement.dataset.theme}`,
+            );
+            const darkBg = W.getComputedStyle(D.body).backgroundColor;
+            log(
+              rgbDark(darkBg) && darkBg !== initialBg,
+              '暗色下页面底色变暗',
+              `${initialBg} → ${darkBg}`,
+            );
+
+            // 弹层曾是写死的 #fff：暗色下必须跟着深下去
+            btn.click();
+            await sleep(300);
+            const menuBg = $('.row-menu') ? W.getComputedStyle($('.row-menu')).backgroundColor : '';
+            log(rgbDark(menuBg), '暗色下弹出菜单是深色（原来写死 #fff）', menuBg || '菜单没出来');
+            $('[data-row-item="light"]').click();
+            await sleep(340);
+            log(
+              mode() === 'light' && !rgbDark(W.getComputedStyle(D.body).backgroundColor),
+              '切回「明亮」还原亮底',
+              `theme=${mode()} bg=${W.getComputedStyle(D.body).backgroundColor}`,
+            );
+
+            btn.click();
+            await sleep(300);
+            $('[data-row-item="system"]').click();
+            await sleep(340);
+            const sysDark = W.matchMedia('(prefers-color-scheme: dark)').matches;
+            log(
+              mode() === 'system' &&
+                D.documentElement.dataset.theme === (sysDark ? 'dark' : 'light') &&
+                D.documentElement.dataset.themeMode === 'system',
+              '「跟随系统」按系统偏好解析',
+              `系统${sysDark ? '暗' : '亮'}色 → data-theme=${D.documentElement.dataset.theme}`,
+            );
+
+            // 还原初始模式，免得下次跑探针时首屏主题不同（探针必须可重复跑）
+            btn.click();
+            await sleep(300);
+            const back = $(`[data-row-item="${initial}"]`);
+            log(!!back, `还原初始模式 ${initial}`, back ? '' : '菜单项缺失');
+            if (back) back.click();
+            await sleep(340);
+            log(mode() === initial, '主题模式已还原', `theme=${mode()}`);
+          }
         } catch (err) {
           log(false, '脚本异常', err && err.message);
         }

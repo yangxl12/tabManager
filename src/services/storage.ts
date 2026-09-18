@@ -36,6 +36,8 @@ export const KEYS = {
   currentFolder: 'tabnest.currentFolder',
   panelWidth: 'tabnest.panelWidth',
   helpOpen: 'tabnest.helpOpen',
+  /** 主题模式；与 localStorage 镜像同一 key，见 lib/theme.ts */
+  theme: 'tabnest.theme',
 } as const;
 
 export function subscribeLocal(
