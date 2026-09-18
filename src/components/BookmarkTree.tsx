@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '@/store';
-import { totalFolders, visibleRows } from '@/lib/bookmarkTree';
+import { totalFolders, visibleRows, allFolderIds } from '@/lib/bookmarkTree';
 import { colorFor } from '@/lib/colors';
 import { IconChevron, IconFolder, IconFolderPlus, IconPencil, IconTrash } from './icons';
 import { RowMenu } from './RowMenu';
@@ -29,7 +29,7 @@ function TreeRow({
     (s) => s.drag.active && s.drag.kind === 'bookmark' && s.drag.ids.includes(id),
   );
   const goto = useStore((s) => s.gotoFolder);
-  const toggleExpand = useStore((s) => s.toggleExpand);
+  const toggleCollapse = useStore((s) => s.toggleCollapse);
   const createFolder = useStore((s) => s.createFolder);
   const deleteFolderTree = useStore((s) => s.deleteFolderTree);
 
@@ -69,7 +69,7 @@ function TreeRow({
           className={`tree-caret${open ? ' is-open' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            toggleExpand(id);
+            toggleCollapse(id);
           }}
         >
           <IconChevron size={9} />
@@ -137,12 +137,16 @@ function TreeRow({
 
 export function BookmarkTree() {
   const bm = useStore((s) => s.bm);
-  const expanded = useStore((s) => s.expanded);
+  const collapsed = useStore((s) => s.collapsed);
   const autoEdit = useStore((s) => s.autoEdit);
   const renameNode = useStore((s) => s.renameNode);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
-  const rows = useMemo(() => visibleRows(bm, new Set(expanded)), [bm, expanded]);
+  // 默认全部展开：只有被用户手动收起的才收着
+  const rows = useMemo(
+    () => visibleRows(bm, new Set(allFolderIds(bm).filter((id) => !collapsed.includes(id)))),
+    [bm, collapsed],
+  );
   const folderCount = useMemo(() => totalFolders(bm), [bm]);
 
   const startRename = (id: string, title: string) => {

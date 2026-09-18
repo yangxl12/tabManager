@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allFolderIds,
   attach,
   childrenOf,
   countOf,
@@ -119,6 +120,22 @@ describe('visibleRows', () => {
     // 展开全部也只多出文件夹行，书签（120）留在右侧网格
     const all = visibleRows(s, new Set(['1', '12']));
     expect(all.map((r) => r.node.id)).toEqual(['1', '12', '2']);
+  });
+});
+
+describe('allFolderIds', () => {
+  it('返回全部文件夹，跳过 Chrome 的无标题合成根', () => {
+    expect(allFolderIds(makeState()).sort()).toEqual(['1', '12', '2']);
+  });
+
+  it('默认全部展开：只排除被手动收起的文件夹', () => {
+    const s = makeState();
+    const openAll = new Set(allFolderIds(s));
+    expect(visibleRows(s, openAll).map((r) => r.node.id)).toEqual(['1', '12', '2']);
+
+    const folded = new Set(['1']);
+    const rest = new Set(allFolderIds(s).filter((id) => !folded.has(id)));
+    expect(visibleRows(s, rest).map((r) => r.node.id)).toEqual(['1', '2']);
   });
 });
 

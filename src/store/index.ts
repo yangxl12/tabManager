@@ -40,9 +40,9 @@ export async function bootstrapStore(): Promise<void> {
       const next = changes[KEYS.quickSites].newValue as QuickSite[] | undefined;
       if (Array.isArray(next)) useStore.setState((st) => void (st.quickSites = next));
     }
-    if (changes[KEYS.expanded]) {
-      const next = changes[KEYS.expanded].newValue as string[] | undefined;
-      if (Array.isArray(next)) useStore.setState((st) => void (st.expanded = next));
+    if (changes[KEYS.collapsed]) {
+      const next = changes[KEYS.collapsed].newValue as string[] | undefined;
+      if (Array.isArray(next)) useStore.setState((st) => void (st.collapsed = next));
     }
     if (changes[KEYS.helpOpen]) {
       const next = changes[KEYS.helpOpen].newValue as boolean | undefined;

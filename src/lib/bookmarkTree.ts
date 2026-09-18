@@ -79,6 +79,15 @@ export function treeRootIds(state: BmState): string[] {
   return out;
 }
 
+/** 树中全部可展示的文件夹 id（跳过合成根），书签树默认据此全部展开 */
+export function allFolderIds(state: BmState): string[] {
+  const out: string[] = [];
+  for (const n of Object.values(state.nodes)) {
+    if (n.isFolder && !isSyntheticFolder(state, n)) out.push(n.id);
+  }
+  return out;
+}
+
 /**
  * 顶层文件夹按「账号书签 / 此设备书签」分组。
  * 只有一套存储时（未登录、或旧版 Chrome 没有 syncing 字段）返回单组且不带标题，

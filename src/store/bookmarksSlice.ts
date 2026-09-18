@@ -25,7 +25,8 @@ export interface BookmarksSlice {
   bm: BmState;
   bmReady: boolean;
   currentFolder: string;
-  expanded: string[];
+  /** 被用户手动收起的文件夹；不在表里的一律展开（默认全展开） */
+  collapsed: string[];
   selectedBms: string[];
   closingBms: string[];
   undoStack: UndoRecord[];
@@ -38,7 +39,7 @@ export interface BookmarksSlice {
   initBookmarks: () => Promise<void>;
   syncBookmarks: () => Promise<void>;
   gotoFolder: (id: string) => void;
-  toggleExpand: (id: string) => void;
+  toggleCollapse: (id: string) => void;
 
   toggleBmSel: (
     id: string,
@@ -89,7 +90,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
     bm: { nodes: {}, roots: [] },
     bmReady: false,
     currentFolder: '',
-    expanded: [],
+    collapsed: [],
     selectedBms: [],
     closingBms: [],
     undoStack: [],
@@ -108,16 +109,16 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         return;
       }
       await get().syncBookmarks();
-      const [storedFolder, storedExpanded] = await Promise.all([
+      const [storedFolder, storedCollapsed] = await Promise.all([
         getLocal<string>(KEYS.currentFolder, ''),
-        getLocal<string[]>(KEYS.expanded, []),
+        getLocal<string[]>(KEYS.collapsed, []),
       ]);
       set((s) => {
         const roots = treeRootIds(s.bm);
         const valid = storedFolder && s.bm.nodes[storedFolder]?.isFolder ? storedFolder : roots[0] ?? '';
         s.currentFolder = valid;
-        s.expanded = storedExpanded.filter((id) => s.bm.nodes[id]?.isFolder);
-        if (valid && !s.expanded.includes(valid)) s.expanded.push(valid);
+        // 只记用户手动收起的那几个，其余一律默认展开
+        s.collapsed = storedCollapsed.filter((id) => s.bm.nodes[id]?.isFolder);
         s.bmReady = true;
       });
 
@@ -186,7 +187,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         }
         s.selectedBms = s.selectedBms.filter((x) => !!next.nodes[x]);
         s.closingBms = s.closingBms.filter((x) => !!next.nodes[x]);
-        s.expanded = s.expanded.filter((x) => next.nodes[x]?.isFolder);
+        s.collapsed = s.collapsed.filter((x) => next.nodes[x]?.isFolder);
       });
     },
 
@@ -194,20 +195,20 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       set((s) => {
         if (!s.bm.nodes[id]?.isFolder) return;
         s.currentFolder = id;
+        // 选中某个文件夹时把它连同祖先一起展开，保证它在树里可见
         const chain = pathOf(s.bm, id).map((n) => n.id);
-        for (const cid of chain) if (!s.expanded.includes(cid)) s.expanded.push(cid);
-        if (!s.expanded.includes(id)) s.expanded.push(id);
+        s.collapsed = s.collapsed.filter((cid) => cid !== id && !chain.includes(cid));
         void setLocal(KEYS.currentFolder, id);
-        void setLocal(KEYS.expanded, s.expanded);
+        void setLocal(KEYS.collapsed, s.collapsed);
       });
     },
 
-    toggleExpand(id) {
+    toggleCollapse(id) {
       set((s) => {
-        const at = s.expanded.indexOf(id);
-        if (at > -1) s.expanded.splice(at, 1);
-        else s.expanded.push(id);
-        void setLocal(KEYS.expanded, s.expanded);
+        const at = s.collapsed.indexOf(id);
+        if (at > -1) s.collapsed.splice(at, 1);
+        else s.collapsed.push(id);
+        void setLocal(KEYS.collapsed, s.collapsed);
       });
     },
 
@@ -326,7 +327,8 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
             };
             const p = s.bm.nodes[parentId];
             if (p) p.children.push(id);
-            if (!s.expanded.includes(parentId)) s.expanded.push(parentId);
+            // 父级若被手动收起则展开，否则新文件夹的命名输入框看不见
+            s.collapsed = s.collapsed.filter((x) => x !== parentId);
           });
           get().requestAutoEdit(id, 'name');
           get().toast('已新建文件夹，输入名称后点击别处确认');

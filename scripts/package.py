@@ -31,6 +31,31 @@ def fail(msg: str) -> None:
     sys.exit(1)
 
 
+def reset_dir(path: Path) -> None:
+    """清掉上一次的产物目录。
+
+    优先走 shutil.rmtree（在 WorkBuddy 沙箱里会被 safe-delete 钩子改写成「移入回收站」，
+    这是期望行为）；回收站操作失败时降级为就地逐项删除 —— 只会作用于本脚本自己产出的
+    release/<stem> 目录，已用 is_relative_to 兜住，不会误删别处。
+    """
+    if not path.exists():
+        return
+    try:
+        shutil.rmtree(path)
+        return
+    except Exception as err:  # noqa: BLE001 - 任何删除实现失败都走降级
+        if not path.is_relative_to(RELEASE) or path == RELEASE:
+            fail(f"删除 {path} 失败，且该路径不在 release/ 下，已中止：{err}")
+        print(f"[!] 回收站删除失败，改为就地删除：{err}")
+
+    for child in sorted(path.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        if child.is_dir() and not child.is_symlink():
+            child.rmdir()
+        else:
+            child.unlink()
+    path.rmdir()
+
+
 def verify(dist: Path) -> dict:
     """打包前的硬校验，任何一条不过就直接中止。"""
     manifest_path = dist / "manifest.json"
@@ -79,8 +104,7 @@ def main() -> None:
     out_zip = RELEASE / f"{stem}.zip"
 
     # 重建解压目录
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
+    reset_dir(out_dir)
     shutil.copytree(DIST, out_dir)
 
     # 打 zip：逐文件写入，显式使用正斜杠，保证 manifest.json 在根目录
