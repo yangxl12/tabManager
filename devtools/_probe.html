@@ -592,6 +592,9 @@
           {
             const tiles = $$('.quick-tile:not(.quick-tile--add)');
             log(tiles.length >= 1, '存在快捷站点磁贴', `实际 ${tiles.length}`);
+            // 回归基准：菜单 portal 到 body，但 React 合成事件依旧沿组件树冒泡到磁贴的
+            // onClick，点「编辑 / 删除」曾误触发打开网址 —— 表现为标签卡片凭空多出来。
+            const tabsBeforeMenu = $$('[data-tab-card]').length;
             const dot = tiles[0].querySelector('[data-row-menu]');
             log(!!dot, '磁贴上改为一个「三个点」按钮');
             log(
@@ -627,6 +630,11 @@
               $$('.quick-form .btn').find((b) => b.textContent.includes('取消')).click();
               await sleep(350);
             }
+            log(
+              $$('[data-tab-card]').length === tabsBeforeMenu,
+              '磁贴菜单点「编辑」不会误触发打开网址',
+              `标签卡片 ${tabsBeforeMenu} → ${$$('[data-tab-card]').length}`,
+            );
 
             // 删除动作真的会摘掉磁贴
             const beforeDel = $$('.quick-tile:not(.quick-tile--add)').length;
@@ -638,6 +646,11 @@
               $$('.quick-tile:not(.quick-tile--add)').length === beforeDel - 1,
               '菜单里点「删除」会移除该磁贴',
               `${beforeDel} → ${$$('.quick-tile:not(.quick-tile--add)').length}`,
+            );
+            log(
+              $$('[data-tab-card]').length === tabsBeforeMenu,
+              '磁贴菜单点「删除」不会误触发打开网址',
+              `标签卡片 ${tabsBeforeMenu} → ${$$('[data-tab-card]').length}`,
             );
           }
 

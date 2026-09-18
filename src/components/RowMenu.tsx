@@ -99,6 +99,8 @@ export function RowMenu({ items, title = '更多操作', marker }: Props) {
       {createPortal(
         <AnimatePresence>
           {open ? (
+            // portal 只改 DOM 位置，React 合成事件仍会沿组件树冒到触发那一行的 onClick
+            // （点「编辑 / 删除」会误触发打开网址）→ mousedown、click 都要在菜单这层截断。
             <motion.div
               ref={menuRef}
               className="row-menu"
@@ -109,13 +111,15 @@ export function RowMenu({ items, title = '更多操作', marker }: Props) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12, ease: [0.22, 0.8, 0.28, 1] }}
               onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
             >
               {items.map((it) => (
                 <button
                   key={it.key}
                   role="menuitem"
                   className={`row-menu__item${it.danger ? ' is-danger' : ''}`}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setOpen(false);
                     it.onPick();
                   }}
