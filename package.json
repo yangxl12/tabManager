@@ -1,0 +1,43 @@
+{
+  "name": "tabnest",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "TabNest 标签巢 · 新标签页标签管理 + 书签管理",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "package": "npm run build && python scripts/package.py",
+    "verify:release": "node devtools/verify-release.mjs",
+    "release": "npm run package && npm run verify:release",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "icons": "python scripts/gen-icons.py",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@atlaskit/pragmatic-drag-and-drop": "^3.1.0",
+    "@atlaskit/pragmatic-drag-and-drop-auto-scroll": "^3.2.0",
+    "@atlaskit/pragmatic-drag-and-drop-hitbox": "^2.2.2",
+    "immer": "^11.0.0",
+    "motion": "^13.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.7.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/chrome": "^0.3.0",
+    "@types/node": "^24.9.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.1",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  }
+}

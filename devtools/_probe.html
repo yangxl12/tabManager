@@ -1,0 +1,889 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RUNNING</title>
+    <style>
+      body {
+        margin: 0;
+        font: 12px/1.6 ui-monospace, monospace;
+      }
+      #stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 900px;
+        height: 900px;
+        overflow: hidden;
+      }
+      iframe {
+        width: 1680px;
+        height: 900px;
+        border: 0;
+        transform: scale(0.53);
+        transform-origin: top left;
+      }
+      #log {
+        position: fixed;
+        right: 0;
+        top: 0;
+        width: 740px;
+        height: 100vh;
+        overflow: auto;
+        background: #111;
+        color: #9f9;
+        margin: 0;
+        padding: 10px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"><iframe id="app" src="/src/newtab/index.html"></iframe></div>
+    <pre id="log"></pre>
+    <script>
+      const logEl = document.getElementById('log');
+      const out = [];
+      const errors = [];
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      function log(ok, label, extra) {
+        out.push(`${ok ? 'PASS' : 'FAIL'}  ${label}${extra ? ' :: ' + extra : ''}`);
+        logEl.textContent = out.join('\n');
+      }
+      function setInput(el, value) {
+        const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
+        desc.set.call(el, value);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      const frame = document.getElementById('app');
+      let D;
+      let started = false;
+      const $ = (s) => D.querySelector(s);
+      const $$ = (s) => [...D.querySelectorAll(s)];
+      const cards = () => $$('[data-bm-card]');
+      const bmCardById = (id) => D.querySelector(`[data-bm-card="${id}"] .bm-card`);
+      const headerBtn = (text) => $$('.pane-main .sec-ops .btn').find((b) => b.textContent.includes(text));
+      const tabBtn = (text) => $$('.pane-tabs .sec-ops .btn').find((b) => b.textContent.includes(text));
+
+      frame.addEventListener('load', async () => {
+        D = frame.contentDocument;
+        if (!D || D.location.pathname.indexOf('index.html') < 0) return;
+        if (started) return;
+        started = true;
+        out.length = 0;
+        const W = frame.contentWindow;
+        W.addEventListener('error', (e) =>
+          errors.push('iframe:' + (e.error && e.error.stack ? e.error.stack : e.message)),
+        );
+        const origErr = W.console.error;
+        W.console.error = (...a) => {
+          errors.push('console:' + a.map(String).join(' '));
+          origErr.apply(W.console, a);
+        };
+        const origWarn = W.console.warn;
+        W.console.warn = (...a) => {
+          errors.push('warn:' + a.map(String).join(' '));
+          origWarn.apply(W.console, a);
+        };
+        W.addEventListener('unhandledrejection', (e) =>
+          errors.push('reject:' + (e.reason && e.reason.stack ? e.reason.stack : String(e.reason))),
+        );
+        // 把每条 toast 文案记下来，便于定位失败原因
+        const seenToasts = new Set();
+        const toastObserver = new MutationObserver(() => {
+          D.querySelectorAll('.toast__msg').forEach((el) => {
+            const t = el.textContent || '';
+            if (t && !seenToasts.has(t)) {
+              seenToasts.add(t);
+              out.push(`TOAST  ${t}`);
+              logEl.textContent = out.join('\n');
+            }
+          });
+        });
+        toastObserver.observe(D.body, { childList: true, subtree: true });
+
+        await sleep(1200);
+
+        try {
+          /* ---------- 首屏 ----------
+             基准数一律现取：devSeed 的数据会随调试需要增减，
+             写死数字会让这些断言在「只是加了两条测试数据」时假红。 */
+          const BASE_TABS = $$('[data-tab-card]').length;
+          const BASE_BM = cards().length;
+          const BASE_ROWS = $$('.tree-row').length;
+          log(BASE_BM >= 8, '首屏渲染书签卡片（≥8 张）', `实际 ${BASE_BM}`);
+          log(
+            BASE_TABS > 0 && BASE_TABS === W.__tabnest.getState().tabs.length,
+            '首屏渲染的标签卡片数 = store 中非自身标签数',
+            `卡片 ${BASE_TABS} / store ${W.__tabnest.getState().tabs.length}`,
+          );
+          log(BASE_ROWS >= 5, '书签树按展开状态渲染行（≥5 行）', `实际 ${BASE_ROWS}`);
+          log($$('.quick-tile').length === 9, '快捷站点 8 个 + 新增位', `实际 ${$$('.quick-tile').length}`);
+          log($('.crumb') === null, '根层不显示面包屑');
+          log(
+            $$('.tree-group').length === 2,
+            '顶层按账号 / 此设备分成两组',
+            [...$$('.tree-group')].map((e) => e.textContent).join(' + '),
+          );
+          log(
+            $$('.tree-group')[0].textContent === '账号书签' &&
+              $$('.tree-group')[1].textContent === '此设备书签',
+            '分组标题文案正确',
+          );
+
+          /* ---------- 自身标签页不进列表（回归：自己的新标签页出现在卡片里） ---------- */
+          {
+            const selfId = W.__tabnest.getState().selfTabId;
+            log(!$(`[data-tab-card="${selfId}"]`), '自身标签页不出现在标签卡片里', `selfTabId=${selfId}`);
+            await W.chrome.tabs.create({
+              url: 'chrome-extension://tabnest-dev/src/newtab/index.html',
+            });
+            await sleep(300);
+            log(
+              $$('[data-tab-card]').length === BASE_TABS,
+              '扩展自身页面靠 URL 兜底也被过滤',
+              `实际 ${$$('[data-tab-card]').length}`,
+            );
+          }
+
+          /* ---------- 拖拽指示互不串台（回归：左右面板闪烁） ---------- */
+          const dragState = W.__tabnest.getState();
+          // 书签卡 id '101'（掘金）与标签 id 101（GitHub）刻意同号，用来验串台
+          dragState.setDrag({
+            active: true,
+            kind: 'bookmark',
+            ids: ['104'],
+            indicator: { kind: 'bookmark', targetId: '101', side: 'after' },
+          });
+          await sleep(150);
+          log(
+            !$('[data-tab-card="101"] .tab-card.drop-a'),
+            '拖书签时左侧标签卡片不显示插入线',
+          );
+          log(
+            !!$('[data-bm-card="101"] .bm-card.drop-a'),
+            '拖书签时右侧同号书签卡片显示插入线',
+          );
+
+          dragState.setDrag({
+            active: true,
+            kind: 'tab',
+            ids: ['101'],
+            indicator: { kind: 'tab', targetId: '101', side: 'before' },
+          });
+          await sleep(150);
+          log(
+            !$('[data-bm-card="101"] .bm-card.drop-b'),
+            '拖标签时右侧书签卡片不显示插入线',
+          );
+          log(
+            !!$('[data-tab-card="101"] .tab-card.drop-b'),
+            '拖标签时左侧同号标签卡片显示插入线',
+          );
+          log(
+            !$('[data-bm-card="101"] .bm-card.dragging'),
+            '拖标签时右侧卡片不进入拖拽半透明态',
+          );
+
+          // 经过标签面板空区时，右侧书签面板不应有任何高亮
+          dragState.setDrag({ kind: 'tab', ids: ['101'], indicator: null, dropPane: 'tab' });
+          await sleep(150);
+          log(
+            !$('.pane-main.drop-ready') && !$('.pane-main.drop-hint'),
+            '拖标签经过左侧空区时右侧面板无高亮',
+          );
+
+          // 外部文件拖入 → 强提示
+          dragState.setDrag({ kind: 'file', ids: [], indicator: null, dropPane: 'bookmark' });
+          await sleep(150);
+          log(!!$('.pane-main.drop-ready'), '外部文件拖入时右侧面板显示强提示');
+
+          // 内部书签拖拽经过空区 → 弱提示
+          dragState.setDrag({ kind: 'bookmark', ids: ['104'], indicator: null, dropPane: 'bookmark' });
+          await sleep(150);
+          log(
+            !!$('.pane-main.drop-hint') && !$('.pane-main.drop-ready'),
+            '内部拖书签经过空区时只显示虚线描边',
+          );
+
+          dragState.resetDrag();
+          await sleep(150);
+          log(
+            !$('.pane-main.drop-ready') &&
+              !$('.pane-main.drop-hint') &&
+              !$('.drop-b') &&
+              !$('.drop-a'),
+            '拖拽结束后所有落点提示清除',
+          );
+
+          /* ---------- 标签 ---------- */
+          $('[data-tab-card="101"] .tab-card').click();
+          await sleep(150);
+          log(
+            $$('[data-tab-card]').length === BASE_TABS + 1,
+            '单击标签卡片会新开标签',
+            `实际 ${$$('[data-tab-card]').length}`,
+          );
+          $$('[data-tab-card]')[BASE_TABS].querySelector('.xbtn').click();
+          await sleep(700);
+          log(
+            $$('[data-tab-card]').length === BASE_TABS,
+            '关闭新开的标签后回到基准张数',
+            `实际 ${$$('[data-tab-card]').length}`,
+          );
+
+          $('[data-tab-card="103"] .tab-card .xbtn').click();
+          await sleep(80);
+          log(!!$('[data-tab-card="103"] .tab-card.is-closing'), '关闭标签先播 is-closing 动画');
+          await sleep(700);
+          log(!$('[data-tab-card="103"]'), '动画结束后标签卡片移除');
+
+          // 标签多选 → 批量关闭
+          $('[data-tab-card="104"] .pick').click();
+          $('[data-tab-card="105"] .pick').click();
+          await sleep(120);
+          log(!!$('.tab-grid.select-mode'), '勾选标签进入多选模式');
+          log(!!tabBtn('关闭选中'), '标签工具条出现「关闭选中」');
+          tabBtn('关闭选中').click();
+          await sleep(900);
+          log(
+            $$('[data-tab-card]').length === BASE_TABS - 3,
+            '批量关闭 2 个标签后剩（基准 - 3）张',
+            `实际 ${$$('[data-tab-card]').length}`,
+          );
+
+          log(!$('.search'), '顶部全局搜索框已移除');
+
+          /* ---------- 书签：单个删除 + 撤回 ---------- */
+          const before = cards().length;
+          bmCardById('100').querySelector('.xbtn').click();
+          await sleep(800);
+          log(cards().length === before - 1, '删除书签卡片', `${before} → ${cards().length}`);
+          log(!!$('.toast__act'), '删除后出现撤回 toast');
+          $('.toast__act').click();
+          await sleep(700);
+          log(cards().length === before, '撤回后卡片数量恢复', `实际 ${cards().length}`);
+          log(
+            [...$$('.bm-card__name')].some((n) => n.textContent === 'GitHub'),
+            '撤回后书签内容还原',
+          );
+
+          /* ---------- 行内编辑 ---------- */
+          const nameEl = bmCardById('101').querySelector('.bm-card__name');
+          nameEl.click();
+          await sleep(100);
+          const input = bmCardById('101').querySelector('.bm-card__meta input:not(.soft)');
+          log(!!input, '点击名称进入行内编辑');
+          setInput(input, '掘金 · 改名测试');
+          input.blur();
+          await sleep(500);
+          log(
+            bmCardById('101').querySelector('.bm-card__name').textContent === '掘金 · 改名测试',
+            'blur 提交名称修改',
+            bmCardById('101').querySelector('.bm-card__name').textContent,
+          );
+
+          const hostEl = bmCardById('101').querySelector('.bm-card__host');
+          log(hostEl.textContent === 'juejin.cn', '域名只显示 host', hostEl.textContent);
+          hostEl.click();
+          await sleep(100);
+          const urlInput = bmCardById('101').querySelector('.bm-card__meta input.soft');
+          log(!!urlInput, '点击域名进入行内编辑');
+          urlInput.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          await sleep(300);
+          log(
+            bmCardById('101').querySelector('.bm-card__host').textContent === 'juejin.cn',
+            'Esc 取消编辑且不改动原值',
+            bmCardById('101').querySelector('.bm-card__host').textContent,
+          );
+
+          /* ---------- 全局书签搜索弹窗 ---------- */
+          {
+            $('.bm-search-btn').click();
+            await sleep(350);
+            log(!!$('.bmsearch'), '点击搜索图标打开全局书签搜索弹窗');
+            const sInput = $('.bmsearch__field input');
+            log(D.activeElement === sInput, '搜索框自动聚焦');
+            log(
+              $$('.bmsearch__field .ico-btn').length === 0,
+              '输入为空时不显示输入框清空按钮',
+              `实际 ${$$('.bmsearch__field .ico-btn').length}`,
+            );
+
+            setInput(sInput, 'github');
+            await sleep(300);
+            log(
+              $$('.bmsearch__item').length === 1,
+              '搜索列出命中的书签',
+              `实际 ${$$('.bmsearch__item').length}`,
+            );
+            log(!!$('.bmsearch__name mark'), '命中关键词高亮显示');
+
+            // 输入框里的 X：只清空字符，不关弹窗
+            $('.bmsearch__field .ico-btn').click();
+            await sleep(350);
+            log(
+              sInput.value === '',
+              '输入框的 X 只清空输入内容',
+              `value=${JSON.stringify(sInput.value)}`,
+            );
+            log(
+              W.__tabnest.getState().searchOpen === true && !!$('.bmsearch'),
+              '清空后弹窗仍处于打开状态',
+              `state=${W.__tabnest.getState().searchOpen} box=${!!$('.bmsearch')}`,
+            );
+
+            setInput(sInput, '工作');
+            await sleep(300);
+            log(
+              $$('.bmsearch__item').length >= 4,
+              '搜「工作」同时命中文件夹与其下的书签',
+              `实际 ${$$('.bmsearch__item').length}`,
+            );
+
+            setInput(sInput, 'zzz-不存在-zzz');
+            await sleep(300);
+            log(!!$('.bmsearch__hint'), '无结果时给出提示');
+
+            setInput(sInput, 'github');
+            await sleep(300);
+            const tabsBeforeEnter = $$('[data-tab-card]').length;
+            sInput.dispatchEvent(
+              new W.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+            );
+            await sleep(800);
+            log(
+              tabsBeforeEnter + 1 === $$('[data-tab-card]').length,
+              'Enter 打开命中的书签（新标签页）',
+              `${tabsBeforeEnter} → ${$$('[data-tab-card]').length}`,
+            );
+            // 键盘路径只断言状态层：headless 虚拟时间下 React 的提交流水线不同步，
+            // DOM 是否真的卸载交给下面「真实点击关闭」那条来验
+            log(
+              W.__tabnest.getState().searchOpen === false,
+              'Enter 后弹窗进入关闭态',
+              `state=${W.__tabnest.getState().searchOpen} box=${!!$('.bmsearch')}`,
+            );
+
+            // 鼠标点击搜索结果：同样必须在新标签页打开
+            $('.bm-search-btn').click();
+            await sleep(400);
+            const sInput2 = $('.bmsearch__field input');
+            setInput(sInput2, 'github');
+            await sleep(300);
+            const tabsBeforeClick = $$('[data-tab-card]').length;
+            $('.bmsearch__item').click();
+            await sleep(800);
+            log(
+              tabsBeforeClick + 1 === $$('[data-tab-card]').length,
+              '鼠标点击搜索结果在新标签页打开',
+              `${tabsBeforeClick} → ${$$('[data-tab-card]').length}`,
+            );
+            log(
+              !$('.bmsearch') || W.getComputedStyle($('.modal')).opacity === '0',
+              '点击结果后弹窗收起',
+              `box=${!!$('.bmsearch')}`,
+            );
+
+            // 真实点击右上角的 X：验证 DOM 真的卸载
+            $('.bm-search-btn').click();
+            await sleep(400);
+            log(!!$('.bmsearch'), '再次点图标能重新打开弹窗');
+            log(!!$('.bmsearch__close'), '弹窗右上角有独立关闭按钮');
+            $('.bmsearch__close').click();
+            await sleep(900);
+            log(
+              !$('.bmsearch') || W.getComputedStyle($('.modal')).opacity === '0',
+              '点右上角 X 关闭弹窗并淡出',
+              `box=${!!$('.bmsearch')}`,
+            );
+
+            // 快捷键：Ctrl+K 打开 / Esc 关闭
+            D.dispatchEvent(
+              new W.KeyboardEvent('keydown', {
+                key: 'k',
+                ctrlKey: true,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+            await sleep(500);
+            log(
+              W.__tabnest.getState().searchOpen === true,
+              'Ctrl+K 打开搜索弹窗',
+              `state=${W.__tabnest.getState().searchOpen}`,
+            );
+            D.dispatchEvent(
+              new W.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+            );
+            await sleep(500);
+            log(
+              W.__tabnest.getState().searchOpen === false,
+              'Esc 让搜索弹窗进入关闭态',
+              `state=${W.__tabnest.getState().searchOpen} box=${!!$('.bmsearch')}`,
+            );
+            if ($('.bmsearch__close')) {
+              $('.bmsearch__close').click();
+              await sleep(700);
+            }
+          }
+
+          /* ---------- 文件夹 ---------- */
+          $('[data-tree-row="1"] .tree-caret').click();
+          await sleep(250);
+          log(
+            $$('.tree-row').length < BASE_ROWS,
+            '收起「收藏夹栏」后树行数减少',
+            `${BASE_ROWS} → ${$$('.tree-row').length}`,
+          );
+          $('[data-tree-row="1"] .tree-caret').click();
+          await sleep(250);
+          log(
+            $$('.tree-row').length === BASE_ROWS,
+            '再次展开后树行数还原',
+            `实际 ${$$('.tree-row').length} / 基准 ${BASE_ROWS}`,
+          );
+          $('[data-tree-row="1"]').click();
+          $('[data-tree-row="11"]').click();
+          await sleep(250);
+          log($('.pane-main .sec-title').textContent === '工作', '点击文件夹切换当前目录', $('.pane-main .sec-title').textContent);
+          log(!!$('.crumb'), '子文件夹显示面包屑', $('.crumb') ? $('.crumb').textContent : '');
+          log(!!$('.subchips .chip'), '子文件夹显示为 chips');
+
+          /* ---------- 新建草稿 ---------- */
+          headerBtn('新建').click();
+          await sleep(200);
+          const draft = $('.bm-card.is-draft');
+          log(!!draft, '新建后出现「未保存」草稿卡片');
+          const nameInput = $('.bm-card.is-draft .bm-card__meta input:not(.soft)');
+          log(!!nameInput, '新建后名称变为输入框');
+          log(D.activeElement === nameInput, '焦点落在名称输入框上');
+          setInput(nameInput, '测试站点');
+          nameInput.blur();
+          await sleep(200);
+          log(!!$('.bm-card.is-draft'), '只有名称没有网址时仍是草稿');
+          $('.bm-card.is-draft .bm-card__host').click();
+          await sleep(120);
+          const urlInput2 = $('.bm-card.is-draft .bm-card__meta input.soft');
+          setInput(urlInput2, 'example.com');
+          urlInput2.blur();
+          await sleep(500);
+          log(!$('.bm-card.is-draft'), '补齐网址后草稿升级为真实书签');
+          log(
+            [...$$('.bm-card__name')].some((n) => n.textContent === '测试站点'),
+            '新书签出现在列表中',
+          );
+
+          /* ---------- 布局瘦身：顶部一排 / 快捷站点标题行 / 面板底部两行都拿掉 ---------- */
+          {
+            log(!$('.topbar'), '顶部 logo + 时间那一排已移除');
+            log(!$('.pane-quick .sec-head'), '快捷站点顶部标题行已移除');
+            log(!$('.pane-tree__foot'), '书签面板底部的「新建子文件夹 / 共 xx 个书签」已移除');
+            log(!$('.tree-count'), '层级菜单项不再显示书签数量');
+            log(!$('.quick-tile__ops'), '快捷磁贴右上角原有的两个小按钮已移除');
+            log(
+              parseFloat(W.getComputedStyle($('.pane-tree')).width) >= 200,
+              '书签层级菜单变宽（≥200px）',
+              W.getComputedStyle($('.pane-tree')).width,
+            );
+            log(
+              parseFloat(W.getComputedStyle($('.tree-row')).height) >= 36,
+              '层级菜单项变高（≥36px）',
+              W.getComputedStyle($('.tree-row')).height,
+            );
+            log(
+              parseFloat(W.getComputedStyle($('.quick-tile__ic')).width) >= 40,
+              '快捷站点磁贴变大（图标 ≥40px）',
+              W.getComputedStyle($('.quick-tile__ic')).width,
+            );
+          }
+
+          /* ---------- 快捷站点磁贴「三个点」菜单 ---------- */
+          {
+            const tiles = $$('.quick-tile:not(.quick-tile--add)');
+            log(tiles.length >= 1, '存在快捷站点磁贴', `实际 ${tiles.length}`);
+            const dot = tiles[0].querySelector('[data-row-menu]');
+            log(!!dot, '磁贴上改为一个「三个点」按钮');
+            log(
+              D.querySelectorAll('.row-menu').length === 0,
+              '菜单默认不渲染（点开才出现）',
+              `实际 ${D.querySelectorAll('.row-menu').length}`,
+            );
+            dot.click();
+            await sleep(300);
+            const tileLabels = $$('.row-menu .row-menu__item').map((b) => b.textContent);
+            log(
+              tileLabels.join('|') === '编辑|删除',
+              '磁贴菜单内容为 编辑 / 删除',
+              tileLabels.join(' | '),
+            );
+            $$('.row-menu .row-menu__item')[0].click();
+            await sleep(350);
+            // 同弹窗那几条：headless 虚拟时间下 motion 的出场动画不一定走完卸载，
+            // 只要不可见（opacity 0）就算收起，DOM 是否真卸载交给真实浏览器
+            const leftMenu = $('.row-menu');
+            log(
+              !leftMenu || W.getComputedStyle(leftMenu).opacity === '0',
+              '选中菜单项后菜单自动收起',
+              leftMenu ? `opacity=${W.getComputedStyle(leftMenu).opacity}` : 'box=false',
+            );
+            const nameField = $('.quick-form .fld');
+            log(
+              !!nameField && nameField.value === tiles[0].querySelector('.quick-tile__nm').textContent,
+              '点「编辑」打开对应磁贴的编辑表单',
+              nameField ? nameField.value : '(无表单)',
+            );
+            if (nameField) {
+              $$('.quick-form .btn').find((b) => b.textContent.includes('取消')).click();
+              await sleep(350);
+            }
+
+            // 删除动作真的会摘掉磁贴
+            const beforeDel = $$('.quick-tile:not(.quick-tile--add)').length;
+            $$('.quick-tile:not(.quick-tile--add)')[0].querySelector('[data-row-menu]').click();
+            await sleep(300);
+            $$('.row-menu .row-menu__item')[1].click();
+            await sleep(450);
+            log(
+              $$('.quick-tile:not(.quick-tile--add)').length === beforeDel - 1,
+              '菜单里点「删除」会移除该磁贴',
+              `${beforeDel} → ${$$('.quick-tile:not(.quick-tile--add)').length}`,
+            );
+          }
+
+          /* ---------- 文件夹行「三个点」菜单 ---------- */
+          {
+            const dot = $('[data-tree-row="11"] [data-row-menu="11"]');
+            log(!!dot, '文件夹行有「三个点」按钮');
+            dot.click();
+            await sleep(300);
+            const labels = $$('.row-menu .row-menu__item').map((b) => b.textContent);
+            log(
+              labels.join('|') === '重命名|新建子文件夹|删除文件夹',
+              '文件夹菜单内容为 重命名 / 新建子文件夹 / 删除文件夹',
+              labels.join(' | '),
+            );
+            // 点菜单外面应能收起
+            D.body.dispatchEvent(new W.MouseEvent('mousedown', { bubbles: true }));
+            await sleep(350);
+            const stuck = $('.row-menu');
+            log(
+              !stuck || W.getComputedStyle(stuck).opacity === '0',
+              '点菜单外部收起菜单',
+              stuck ? `opacity=${W.getComputedStyle(stuck).opacity}` : 'box=false',
+            );
+          }
+
+          /* ---------- 新建子文件夹（走「三个点」菜单） ---------- */
+          const rowsBefore = $$('.tree-row').length;
+          const logBefore = W.__bmCreateLog.length;
+          $('[data-tree-row="11"] [data-row-menu="11"]').click();
+          await sleep(250);
+          const childItem = $$('.row-menu .row-menu__item').find((b) =>
+            b.textContent.includes('新建子文件夹'),
+          );
+          log(!!childItem, '菜单里能点到「新建子文件夹」');
+          childItem.click();
+          await sleep(600);
+          log($$('.tree-row').length === rowsBefore + 1, '新建子文件夹后树多一行', `${rowsBefore} → ${$$('.tree-row').length}`);
+          log(
+            W.__bmCreateLog.length - logBefore === 1,
+            'chrome.bookmarks.create 只被调用一次',
+            JSON.stringify(W.__bmCreateLog.slice(logBefore)),
+          );
+          const renameInput = $('.tree-row input');
+          log(!!renameInput, '新文件夹直接进入重命名输入框');
+          log(
+            D.activeElement === renameInput,
+            '重命名输入框已聚焦',
+            `activeElement=${D.activeElement ? D.activeElement.tagName + '.' + D.activeElement.className : 'none'}`,
+          );
+          if (renameInput) {
+            renameInput.focus();
+            setInput(renameInput, '临时文件夹');
+            let fired = '';
+            renameInput.addEventListener('focusout', () => void (fired += 'focusout '));
+            renameInput.addEventListener('blur', () => void (fired += 'blur '));
+            renameInput.blur();
+            await sleep(400);
+            log(fired.length > 0, '输入框 blur/focusout 事件确实触发', fired || '(无)');
+            const st = W.__tabnest.getState();
+            log(
+              true,
+              'DEBUG 重命名',
+              `t902=${st.bm.nodes['902'] ? JSON.stringify(st.bm.nodes['902'].title) : 'missing'} sameInput=${$('.tree-row input') === renameInput} inputRows=${[...$$('.tree-row')].filter((r) => r.querySelector('input')).length} autoEdit=${JSON.stringify(st.autoEdit)} kid11=${(st.bm.nodes['11'] || {}).children.join(',')}`,
+            );
+            const kid = st.bm.nodes['11'] ? st.bm.nodes['11'].children : [];
+            log(
+              [...$$('.tree-name')].some((n) => n.textContent === '临时文件夹'),
+              '重命名生效',
+              `names=${[...$$('.tree-name')].map((n) => n.textContent).join('/')} | rows=${$$('.tree-row').length} input=${$('.tree-row input') ? 'yes' : 'no'} | contains901=${kid.indexOf('901')} contains902=${kid.indexOf('902')} t901=${st.bm.nodes['901'] ? st.bm.nodes['901'].title : 'missing'}`,
+            );
+          }
+
+          /* ---------- 批量删除 ---------- */
+          const gridKind = $('.pane-main .sec-title').textContent;
+          const total = cards().length;
+          $$('.bm-card .pick').forEach((p) => p.click());
+          await sleep(200);
+          log(!!$('.bm-grid.select-mode'), '勾选书签进入多选模式');
+          log(!!headerBtn('删除选中'), '书签工具条出现「删除选中」');
+          log(
+            W.__tabnest.getState().selectedBms.length === total,
+            '全选后选中集合与卡片数一致',
+            `选中 ${W.__tabnest.getState().selectedBms.length} / 卡片 ${total}`,
+          );
+          headerBtn('删除选中').click();
+          await sleep(1000);
+          log(cards().length === 0, `批量删除「${gridKind}」下全部书签`, `实际 ${cards().length}（删前 ${total}）`);
+          if (cards().length) {
+            log(
+              false,
+              '剩余卡片',
+              $$('.bm-card__name')
+                .map((n) => n.textContent)
+                .join(' / '),
+            );
+          }
+          log(!!$('.empty'), '空文件夹显示空态');
+
+          /* ---------- 导入 ---------- */
+          headerBtn('导入 JSON').click();
+          await sleep(300);
+          log(!!$('.modal__box'), '打开导入弹窗');
+          $$('.modal__box .btn').find((b) => b.textContent.includes('填入示例')).click();
+          await sleep(250);
+          log(/可导入/.test($('.modal__f .tip').textContent), '填入示例后识别到可导入条目', $('.modal__f .tip').textContent);
+          $$('.modal__box .btn').find((b) => b.textContent.includes('导入')).click();
+          await sleep(900);
+          log(
+            !$('.modal__box') || W.getComputedStyle($('.modal')).opacity === '0',
+            '导入完成后弹窗关闭',
+            $('.modal__box') ? `仍在 DOM，opacity=${W.getComputedStyle($('.modal')).opacity}` : '',
+          );
+          log(
+            [...$$('.bm-card__name')].some((n) => n.textContent === 'V2EX'),
+            '导入的书签出现在当前文件夹',
+            `当前 ${cards().length} 张`,
+          );
+
+          /* ---------- 帮助面板（顶部那一排删掉后，入口挪到左侧标签面板的标题行） ---------- */
+          log(!!$('.pane-tabs .help-btn'), '帮助入口在标签面板标题行');
+          $('.pane-tabs .help-btn').click();
+          await sleep(250);
+          log(!!$('.help'), '打开快捷键帮助面板');
+          $('.pane-tabs .help-btn').click();
+          await sleep(600);
+          log(
+            !$('.help') || W.getComputedStyle($('.help')).opacity === '0',
+            '再次点击关闭帮助面板',
+            `helpOpen=${W.__tabnest.getState().helpOpen} opacity=${$('.help') ? W.getComputedStyle($('.help')).opacity : 'n/a'}`,
+          );
+          /* ---------- hover 扁平化：不抬升、不加外阴影，只换底色 ---------- */
+          {
+            const hoverFlat = [];
+            const walkFlat = (rules) => {
+              for (const r of rules) {
+                if (r.selectorText) hoverFlat.push(r);
+                if (r.cssRules) walkFlat(r.cssRules);
+              }
+            };
+            for (const sheet of D.styleSheets) {
+              try {
+                walkFlat(sheet.cssRules);
+              } catch {
+                /* 跨域表跳过 */
+              }
+            }
+            const liftTargets = [
+              '.tab-card:hover',
+              '.bm-card:hover',
+              '.btn:hover',
+              '.ico-btn:hover',
+              '.quick-tile:hover',
+              '.row-menu__btn:hover',
+              '.row-menu__item:hover',
+              '.chip:hover',
+              '.tab-grid.select-mode .tab-card:not(.is-sel):hover',
+              '.bm-grid.select-mode .bm-card:not(.is-sel):hover',
+            ];
+            for (const sel of liftTargets) {
+              const rs = hoverFlat.filter((r) => r.selectorText === sel);
+              if (!rs.length) {
+                log(false, `找到 hover 规则 ${sel}`, '未找到');
+                continue;
+              }
+              const bad = [];
+              const noBg = [];
+              for (const r of rs) {
+                const tr = r.style.transform || '';
+                if (tr && tr !== 'none') bad.push(`transform=${tr}`);
+                // inset 阴影属于「文字下划线」一类的提示，不算抬升
+                const sh = (r.style.boxShadow || '').replace(/inset[^,]*/g, '').trim();
+                if (sh) bad.push(`box-shadow=${sh}`);
+                const bg = r.style.background || r.style.backgroundColor || '';
+                if (!bg || bg === 'none') noBg.push(sel);
+              }
+              log(
+                bad.length === 0,
+                `${sel} 扁平：不位移、不加外阴影`,
+                bad.join(' / ') || rs[0].style.cssText,
+              );
+              log(noBg.length === 0, `${sel} 有底色变化`, noBg.length ? '缺少 background' : rs[0].style.background);
+            }
+          }
+
+          /* ---------- 书签名/域名 hover：不再整行铺灰底 ---------- */
+          {
+            const flat = [];
+            const walk = (rules) => {
+              for (const r of rules) {
+                if (r.selectorText) flat.push(r);
+                if (r.cssRules) walk(r.cssRules);
+              }
+            };
+            for (const sheet of D.styleSheets) {
+              try {
+                walk(sheet.cssRules);
+              } catch {
+                /* 跨域表跳过 */
+              }
+            }
+            const hoverRules = flat.filter((r) => /\.bm-card__(?:name|host):hover/.test(r.selectorText));
+            log(hoverRules.length > 0, '找到书签名/域名 hover 规则', hoverRules.map((r) => r.selectorText).join(' / '));
+            log(
+              hoverRules.every((r) => !r.style.background || r.style.background === 'none'),
+              'hover 规则不含背景色',
+              hoverRules.map((r) => r.style.background || '(none)').join(' / '),
+            );
+            const shortName = $$('.bm-card__name').find(
+              (n) => n.scrollWidth > 10 && n.scrollWidth < n.parentElement.clientWidth - 12,
+            );
+            log(!!shortName, '存在未占满整行的书签名', shortName ? shortName.textContent : '未找到');
+            if (shortName) {
+              log(
+                shortName.clientWidth - shortName.scrollWidth <= 8,
+                '书签名盒子贴合文字宽度（下划线不会横贯整行）',
+                `client=${shortName.clientWidth} scroll=${shortName.scrollWidth} meta=${shortName.parentElement.clientWidth}`,
+              );
+            }
+          }
+
+          /* ---------- 真实原生拖拽（合成 DragEvent 走 pdnd 全链路） ---------- */
+          const tabIds = () => $$('[data-tab-card]').map((el) => el.getAttribute('data-tab-card'));
+          const tabCell = (id) => $(`[data-tab-card="${id}"]`);
+          const bmCell = (id) => $(`[data-bm-card="${id}"]`);
+          const nativeDrag = (srcEl, dstEl, ratio) => {
+            const g = dragSteps(srcEl, dstEl, ratio);
+            g.start();
+            g.over();
+            g.drop();
+          };
+          const dragSteps = (srcEl, dstEl, ratio) => {
+            const dt = new W.DataTransfer();
+            const r = dstEl.getBoundingClientRect();
+            const x = Math.round(r.left + r.width * ratio);
+            const y = Math.round(r.top + r.height / 2);
+            const fire = (type, target) =>
+              target.dispatchEvent(
+                new W.DragEvent(type, {
+                  bubbles: true,
+                  cancelable: true,
+                  composed: true,
+                  dataTransfer: dt,
+                  clientX: x,
+                  clientY: y,
+                }),
+              );
+            return {
+              dt,
+              start: () => fire('dragstart', srcEl),
+              over: () => {
+                fire('dragenter', dstEl);
+                fire('dragover', dstEl);
+              },
+              drop: () => {
+                fire('drop', dstEl);
+                fire('dragend', srcEl);
+              },
+            };
+          };
+
+          {
+            const before = tabIds();
+            log(before.length >= 3, '拖拽前置：标签充足', before.join());
+            log(tabCell(before[0]).getAttribute('draggable') === 'true', '标签卡片注册为拖拽源');
+            log(
+              tabCell(before[0]).hasAttribute('data-drop-target-for-element'),
+              '标签卡片注册为排序落点',
+            );
+
+            // 分步：先验拖拽中途的插入线，再落点（回归：拖了没反应）
+            const g = dragSteps(tabCell(before[0]), tabCell(before[2]), 0.85);
+            g.start();
+            g.over();
+            await sleep(150);
+            log(g.dt.types.includes('application/vnd.pdnd'), '拖拽携带 pdnd 数据标记', g.dt.types.join());
+            const d1 = W.__tabnest.getState().drag;
+            log(
+              d1.active && d1.kind === 'tab' && d1.ids.join() === before[0],
+              '拖拽进行中写入全局拖拽态',
+              `active=${d1.active} kind=${d1.kind} ids=${d1.ids.join()}`,
+            );
+            const ind = d1.indicator;
+            log(
+              ind?.kind === 'tab' && ind?.targetId === before[2] && ind?.side === 'after',
+              '拖到卡片右半区显示「插入到右侧」',
+              JSON.stringify(ind),
+            );
+            g.drop();
+            await sleep(500);
+            const after = tabIds();
+            const want = [before[1], before[2], before[0], ...before.slice(3)];
+            log(after.join() === want.join(), '拖标签到右侧 → 卡片顺序更新', `${before.join()} → ${after.join()}`);
+            log(
+              W.__tabnest
+                .getState()
+                .tabs.map((t) => String(t.id))
+                .join() === want.join(),
+              '拖标签排序写入 store',
+              W.__tabnest
+                .getState()
+                .tabs.map((t) => String(t.id))
+                .join(),
+            );
+
+            // 反向再拖回来（左半区 before）
+            nativeDrag(tabCell(after[2]), tabCell(after[0]), 0.15);
+            await sleep(500);
+            log(tabIds().join() === before.join(), '拖标签到左侧 → 顺序还原', tabIds().join());
+          }
+
+          {
+            const bmBefore = $$('[data-bm-card]').map((el) => el.getAttribute('data-bm-card'));
+            if (bmBefore.length >= 3) {
+              nativeDrag(bmCell(bmBefore[0]), bmCell(bmBefore[2]), 0.85);
+              await sleep(500);
+              const bmAfter = $$('[data-bm-card]').map((el) => el.getAttribute('data-bm-card'));
+              const want = [bmBefore[1], bmBefore[2], bmBefore[0], ...bmBefore.slice(3)];
+              log(bmAfter.join() === want.join(), '拖书签到右侧 → 卡片顺序更新', `${bmBefore.join()} → ${bmAfter.join()}`);
+            } else {
+              log(false, '拖书签排序：卡片不足');
+            }
+          }
+        } catch (err) {
+          log(false, '脚本异常', err && err.message);
+        }
+
+        log(errors.length === 0, '运行期无 console 报错', errors.slice(0, 12).join(' | '));
+        errors
+          .filter((e) => e.startsWith('reject'))
+          .slice(-10)
+          .forEach((e) => out.push('DBGLOG  ' + e));
+        document.title = 'DONE';
+        logEl.textContent = out.join('\n');
+      });
+    </script>
+  </body>
+</html>

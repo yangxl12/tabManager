@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TabNest · 新标签页 · 演示</title>
+<style>
+/* ============================================================
+   Design tokens
+   ============================================================ */
+:root{
+  --bg:#F4F2ED;
+  --panel:#FFFFFF;
+  --panel-soft:#FAF9F6;
+  --ink:#1D1B18;
+  --ink-2:#524D46;
+  --muted:#918A80;
+  --faint:#B6AFA4;
+  --line:#E7E3DB;
+  --line-2:#F2EFE9;
+
+  --jade:#0F8A6B;
+  --jade-soft:#E7F4F0;
+  --blue:#2C6FDB;
+  --blue-soft:#E9F0FD;
+  --amber:#C77D18;
+  --amber-soft:#FBF1DF;
+  --danger:#DC4438;
+  --danger-soft:#FDECEA;
+
+  --r-lg:20px; --r-md:13px; --r-sm:9px; --r-xs:6px;
+  /* hover 一律只换底色，不抬升、不加阴影（扁平） */
+  --hover:#F5F2EC;
+  --hover-2:#F1EEE7;
+  --sh-1:0 1px 2px rgba(30,25,18,.05);
+  --sh-2:0 2px 5px -1px rgba(30,25,18,.06), 0 10px 24px -14px rgba(30,25,18,.20);
+  --sh-3:0 8px 18px -8px rgba(30,25,18,.16), 0 28px 54px -26px rgba(30,25,18,.30);
+  --ease:cubic-bezier(.22,.8,.28,1);
+  --font:"Inter","HarmonyOS Sans SC",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--font);font-size:13px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  overflow:hidden;
+  background-image:
+    radial-gradient(760px 460px at 4% -12%, #E6F2ED 0%, rgba(230,242,237,0) 62%),
+    radial-gradient(720px 520px at 102% -6%, #FBEFE6 0%, rgba(251,239,230,0) 58%),
+    radial-gradient(600px 600px at 50% 118%, #EDEDF8 0%, rgba(237,237,248,0) 60%);
+  background-attachment:fixed;
+}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+input,textarea{font:inherit;color:inherit}
+::selection{background:#BFE6DA;color:#123}
+
+.scroll{overflow:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#DCD6CB transparent}
+.scroll::-webkit-scrollbar{width:10px;height:10px}
+.scroll::-webkit-scrollbar-thumb{background:#DFD9CE;border:3px solid transparent;background-clip:content-box;border-radius:10px}
+.scroll::-webkit-scrollbar-thumb:hover{background:#C9C1B4;background-clip:content-box}
+.scroll::-webkit-scrollbar-track{background:transparent}
+
+:focus-visible{outline:2px solid var(--jade);outline-offset:2px;border-radius:4px}
+
+/* ============================================================
+   Shell
+   ============================================================ */
+.app{height:100vh;display:flex;flex-direction:column;padding:14px 18px 16px}
+
+.topbar{flex:none;display:flex;align-items:center;gap:18px;height:44px;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:10px;flex:none}
+.brand__mark{display:block;filter:drop-shadow(0 2px 3px rgba(30,25,18,.16))}
+.brand__txt{display:flex;align-items:baseline;gap:7px}
+.brand__name{font-family:Georgia,"Times New Roman",serif;font-size:17px;font-weight:600;letter-spacing:-.02em}
+.brand__cn{font-size:11px;color:var(--muted);letter-spacing:.14em}
+.brand__demo{font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--amber);background:var(--amber-soft);border:1px solid #F0DFC0;padding:2px 6px;border-radius:5px;margin-left:2px}
+
+.search{flex:1;max-width:390px;height:34px;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:0 12px;box-shadow:var(--sh-1);transition:.2s var(--ease)}
+.search:focus-within{border-color:#BFE6DA;box-shadow:0 0 0 3px var(--jade-soft),var(--sh-1)}
+.search svg{flex:none;color:var(--faint)}
+.search input{flex:1;border:0;background:none;outline:none;font-size:13px;min-width:0}
+.search input::placeholder{color:var(--faint)}
+.search kbd{font-family:var(--font);font-size:10px;color:var(--faint);background:var(--panel-soft);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px;flex:none}
+
+.topbar__right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.stats{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--ink);font-weight:650}
+.stats i{width:3px;height:3px;border-radius:50%;background:var(--faint);display:block}
+.clock{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.01em;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 12px;box-shadow:var(--sh-1);display:flex;align-items:baseline;gap:7px}
+.clock span{font-size:11px;font-weight:500;color:var(--muted)}
+.ico-btn{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--muted);background:#fff;border:1px solid var(--line);box-shadow:var(--sh-1);transition:.18s var(--ease)}
+.ico-btn:hover{color:var(--ink);background:var(--hover);border-color:#DDD7CC}
+
+.main{flex:1;min-height:0;display:flex;align-items:stretch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh-1);display:flex;min-height:0;overflow:hidden;animation:panelIn .55s var(--ease) backwards}
+.panel--tabs{width:46%;flex:none;flex-direction:column;padding:15px 15px 12px;animation-delay:.02s}
+.panel--bm{flex:1;min-width:0;animation-delay:.1s}
+@keyframes panelIn{from{opacity:0;transform:translateY(14px) scale(.994)}}
+
+/* ============================================================
+   Section head / buttons
+   ============================================================ */
+.sec-head{flex:none;display:flex;align-items:center;gap:9px;margin-bottom:11px;min-height:28px}
+.sec-title{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;letter-spacing:.01em}
+.sec-title::before{content:'';width:3px;height:13px;border-radius:2px;background:var(--sec);display:block}
+.count-pill{font-size:11px;font-weight:650;color:var(--sec);background:var(--sec-soft);padding:1.5px 7px;border-radius:20px;font-variant-numeric:tabular-nums}
+.sec-hint{font-size:11px;color:var(--faint);display:flex;align-items:center;gap:5px;margin-left:2px}
+.sec-ops{margin-left:auto;display:flex;align-items:center;gap:7px}
+
+.btn{height:29px;padding:0 11px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink-2);font-size:12.5px;font-weight:550;display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:.17s var(--ease);white-space:nowrap}
+.btn:hover{background:var(--hover);border-color:#DDD7CC;color:var(--ink)}
+.btn:active{transform:scale(.975)}
+.btn svg{flex:none}
+.btn--dark{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn--dark:hover{background:#000;color:#fff;border-color:#000}
+.btn--danger{color:var(--danger);background:var(--danger-soft);border-color:#F4D9D6}
+.btn--danger:hover{background:var(--danger);border-color:var(--danger);color:#fff}
+.btn--ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn--ghost:hover{background:var(--hover);border-color:var(--line);color:var(--ink)}
+.btn[disabled]{opacity:.42;pointer-events:none}
+.btn--sm{height:26px;padding:0 9px;font-size:12px;border-radius:8px}
+.btn--sel{color:var(--sec);border-color:var(--sec-soft);background:var(--sec-soft)}
+.btn--sel:hover{background:var(--sec);border-color:var(--sec);color:#fff}
+
+/* ============================================================
+   Quick sites
+   ============================================================ */
+.pane-quick{--sec:#C77D18;--sec-soft:var(--amber-soft);flex:none;padding-bottom:13px;border-bottom:1px solid var(--line-2);margin-bottom:13px}
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:4px}
+.quick-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 2px 7px;border-radius:12px;border:1px solid transparent;cursor:pointer;transition:.19s var(--ease)}
+.quick-tile:hover{background:var(--hover);border-color:var(--line)}
+.quick-tile:hover .quick-tile__ops{opacity:1;transform:scale(1)}
+.quick-tile__ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none;color:#fff;font-size:14px;font-weight:700;letter-spacing:.01em;background:linear-gradient(150deg,var(--c),var(--c2));box-shadow:inset 0 -7px 12px -8px rgba(0,0,0,.55), 0 2px 5px -2px rgba(30,25,18,.4)}
+.quick-tile__nm{font-size:11px;font-weight:500;color:var(--ink-2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-tile__ops{position:absolute;top:-5px;right:-3px;display:flex;gap:3px;opacity:0;transform:scale(.75);transition:.16s var(--ease);transform-origin:bottom left}
+.mini{width:19px;height:19px;border-radius:6px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;color:var(--muted);box-shadow:var(--sh-1);transition:.16s var(--ease)}
+.mini svg{width:10px;height:10px}
+.mini:hover{color:var(--ink);border-color:#D8D2C7;background:var(--hover)}
+.mini--del:hover{color:#fff;background:var(--danger);border-color:var(--danger)}
+.quick-tile--add .quick-tile__ic{background:none;border:1px dashed #D6D0C4;color:var(--faint);box-shadow:none;font-weight:400;font-size:19px}
+.quick-tile--add:hover .quick-tile__ic{border-color:var(--sec);color:var(--sec)}
+.quick-form{display:grid;grid-template-columns:1fr 1.4fr auto;gap:7px;margin-top:10px;animation:slideDown .28s var(--ease)}
+.quick-form .fld{height:31px;border:1px solid var(--line);border-radius:9px;background:var(--panel-soft);padding:0 10px;font-size:12.5px;outline:none;transition:.18s var(--ease);width:100%;min-width:0}
+.quick-form .fld:focus{background:#fff;border-color:#BFE6DA;box-shadow:0 0 0 3px var(--jade-soft)}
+@keyframes slideDown{from{opacity:0;transform:translateY(-7px)}}
+
+/* ============================================================
+   Tab grid
+   ============================================================ */
+.pane-tabs{--sec:#2C6FDB;--sec-soft:var(--blue-soft);flex:1;min-height:0;display:flex;flex-direction:column}
+.grid{display:grid;align-content:start;gap:10px}
+.tab-grid{grid-template-columns:repeat(auto-fill,minmax(168px,1fr));padding:2px}
+.tab-card{position:relative;display:flex;flex-direction:column;gap:8px;padding:11px 11px 10px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;user-select:none;min-height:88px;transition:transform .22s var(--ease),box-shadow .22s var(--ease),border-color .22s,background .22s,opacity .22s}
+.tab-card.enter{animation:cardIn .42s var(--ease) backwards}
+@keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.97)}}
+.tab-card:hover{background:var(--hover);border-color:#DFD9CE}
+.tab-card.is-sel{border-color:transparent;background:linear-gradient(180deg,#F4F8FF,#fff);box-shadow:0 0 0 1.6px var(--sec), 0 6px 16px -10px rgba(44,111,219,.5)}
+.tab-card.is-closing{animation:cardCrush .34s var(--ease) forwards;pointer-events:none}
+@keyframes cardCrush{to{transform:scale(.8) rotate(-2deg);opacity:0;filter:blur(4px)}}
+.tab-card.dragging{opacity:.34}
+.tab-card.drop-b::before,.tab-card.drop-a::after{content:'';position:absolute;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--sec);box-shadow:0 0 0 3px var(--sec-soft),0 0 10px -1px var(--sec)}
+.tab-card.drop-b::before{left:-7px}
+.tab-card.drop-a::after{right:-7px}
+.tab-card__top{display:flex;align-items:flex-start;gap:9px;padding-right:24px}
+.tab-card__ttl{flex:1;font-size:12.5px;font-weight:600;line-height:1.42;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;padding-top:1px}
+.tab-card__btm{display:flex;align-items:center;gap:7px;margin-top:auto}
+.tab-card__host{flex:1;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tab-card .pick{opacity:0;transition:.18s var(--ease)}
+.tab-card:hover .pick,.tab-card.is-sel .pick{opacity:1}
+.tab-grid.select-mode .tab-card .pick{opacity:1}
+.tab-grid.select-mode .tab-card:not(.is-sel):hover{background:var(--hover);border-color:#DDD7CC}
+.tab-card .xbtn{position:absolute;top:8px;right:8px;opacity:.4}
+.tab-card:hover .xbtn,.tab-card .xbtn:hover{opacity:1}
+.tile{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;color:#fff;font-size:13px;font-weight:700;background:linear-gradient(150deg,var(--c),var(--c2));box-shadow:inset 0 -7px 12px -8px rgba(0,0,0,.55), 0 2px 5px -2px rgba(30,25,18,.38)}
+.pick{width:17px;height:17px;border-radius:6px;border:1.5px solid #D8D2C7;background:#fff;flex:none;position:relative;transition:.16s var(--ease);cursor:pointer}
+.pick:hover{border-color:var(--sec);transform:scale(1.08)}
+.pick.is-on{background:var(--sec);border-color:var(--sec);box-shadow:0 2px 6px -2px var(--sec)}
+.pick.is-on::after{content:'';position:absolute;left:5px;top:2.5px;width:4px;height:7.5px;border-right:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(43deg);border-radius:1px}
+.xbtn{width:23px;height:23px;border-radius:7px;display:grid;place-items:center;color:var(--faint);transition:.16s var(--ease);flex:none}
+.xbtn:hover{background:var(--danger);color:#fff;transform:rotate(90deg) scale(1.06)}
+.xbtn svg{width:11px;height:11px}
+
+/* ============================================================
+   Bookmarks
+   ============================================================ */
+.pane-tree{--sec:#0F8A6B;--sec-soft:var(--jade-soft);width:178px;flex:none;border-right:1px solid var(--line-2);background:var(--panel-soft);display:flex;flex-direction:column;padding:15px 11px 12px}
+.pane-tree .sec-head{padding:0 4px;margin-bottom:9px}
+.tree{flex:1;min-height:0;padding-right:2px}
+.tree-row{display:flex;align-items:center;gap:7px;height:31px;padding:0 8px 0 calc(4px + var(--d) * 15px);border-radius:9px;cursor:pointer;position:relative;transition:.16s var(--ease)}
+.tree-row:hover{background:#F1EEE7}
+.tree-row.is-active{background:#fff;box-shadow:var(--sh-1);border:1px solid var(--line)}
+.tree-row.is-active .tree-name{font-weight:650;color:var(--ink)}
+.tree-row.is-drop{background:var(--jade-soft);box-shadow:inset 0 0 0 1.5px var(--jade)}
+.tree-caret{width:14px;height:14px;flex:none;display:grid;place-items:center;color:var(--faint);transition:transform .2s var(--ease);border-radius:4px}
+.tree-caret.is-open{transform:rotate(90deg)}
+.tree-caret:hover{color:var(--ink)}
+.tree-caret--empty{pointer-events:none}
+.tree-ic{display:grid;place-items:center;flex:none;opacity:.9}
+.tree-name{flex:1;font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree-count{font-size:10.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.pane-tree__foot{flex:none;padding:10px 6px 0;border-top:1px solid var(--line);margin-top:9px;font-size:11px;color:var(--faint);display:flex;align-items:center;gap:6px}
+
+.pane-main{--sec:#0F8A6B;--sec-soft:var(--jade-soft);flex:1;min-width:0;display:flex;flex-direction:column;padding:15px 15px 12px;position:relative}
+.pane-main.drop-ready{background:linear-gradient(180deg,#F2FAF7,#fff)}
+.pane-main.drop-ready::after{content:'';position:absolute;inset:8px;border:2px dashed var(--jade);border-radius:15px;background:rgba(231,244,240,.5);pointer-events:none;animation:dz .3s var(--ease)}
+@keyframes dz{from{opacity:0;transform:scale(.985)}}
+.drop-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none;background:var(--jade);color:#fff;font-size:13px;font-weight:600;padding:11px 20px;border-radius:12px;box-shadow:var(--sh-3);display:flex;align-items:center;gap:9px;animation:dz .26s var(--ease)}
+
+.crumb{flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);margin:-4px 0 9px 2px;min-height:16px}
+.crumb button{color:var(--muted);transition:.15s;border-radius:4px;padding:0 1px}
+.crumb button:hover{color:var(--ink);text-decoration:underline}
+.crumb .sep{color:#CFC8BC}
+.crumb .cur{color:var(--ink);font-weight:600}
+.subchips{flex:none;display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:27px;padding:0 10px 0 8px;border-radius:8px;background:var(--panel-soft);border:1px solid var(--line);font-size:12px;color:var(--ink-2);transition:.17s var(--ease)}
+.chip:hover{background:var(--hover-2);border-color:#DDD7CC}
+.chip .n{font-size:10.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+
+.bm-grid{flex:1;min-height:0;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:9px;padding:2px 2px 8px}
+.bm-card{position:relative;display:flex;align-items:center;gap:10px;padding:10px 9px 10px 11px;border:1px solid var(--line);border-radius:13px;background:#fff;cursor:pointer;user-select:none;transition:transform .2s var(--ease),box-shadow .2s var(--ease),border-color .2s,background .2s,opacity .2s}
+.bm-card.enter{animation:cardIn .42s var(--ease) backwards}
+.bm-card:hover{background:var(--hover);border-color:#DFD9CE}
+.bm-card.is-sel{border-color:transparent;background:linear-gradient(180deg,#F2FAF7,#fff);box-shadow:0 0 0 1.6px var(--sec),0 6px 16px -10px rgba(15,138,107,.5)}
+.bm-card.is-closing{animation:cardCrush .34s var(--ease) forwards;pointer-events:none}
+.bm-card.dragging{opacity:.34}
+.bm-card.drop-b::before,.bm-card.drop-a::after{content:'';position:absolute;top:6px;bottom:6px;width:3px;border-radius:3px;background:var(--sec);box-shadow:0 0 0 3px var(--sec-soft),0 0 10px -1px var(--sec)}
+.bm-card.drop-b::before{left:-6px}
+.bm-card.drop-a::after{right:-6px}
+.bm-card.is-flash{animation:flash 1.15s var(--ease)}
+@keyframes flash{0%{box-shadow:0 0 0 0 rgba(15,138,107,.55);background:#E7F4F0}60%{box-shadow:0 0 0 9px rgba(15,138,107,0);background:#fff}100%{background:#fff}}
+.bm-card__meta{flex:1;min-width:0}
+.bm-card__name{font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:5px;transition:.15s var(--ease);margin:0 -3px 1px;padding:0 3px;min-height:17px;width:fit-content;max-width:100%}
+.bm-card__host{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:5px;transition:.15s var(--ease);margin:0 -3px;padding:0 3px;width:fit-content;max-width:100%}
+.bm-card__name:hover,.bm-card__host:hover{box-shadow:inset 0 -1px 0 #D9D3C8}
+.bm-card__name[data-empty]::before{content:'未命名书签';color:var(--faint);font-weight:500}
+.bm-card__host[data-empty]::before{content:'点击添加网址';color:#C6BFB3}
+.bm-card__ops{display:flex;align-items:center;gap:5px;flex:none}
+.bm-card .pick{opacity:0}
+.bm-card:hover .pick,.bm-card.is-sel .pick{opacity:1}
+.bm-grid.select-mode .bm-card .pick{opacity:1}
+.bm-grid.select-mode .bm-card:not(.is-sel):hover{background:var(--hover);border-color:#DDD7CC}
+.bm-grid.select-mode .bm-card__name:hover,.bm-grid.select-mode .bm-card__host:hover{background:none;box-shadow:none}
+.mini-input{width:100%;border:0;outline:none;background:#fff;font-size:12.5px;font-weight:600;color:var(--ink);box-shadow:0 0 0 1.6px var(--jade);border-radius:6px;padding:1px 5px;margin:0 -6px;display:block}
+.mini-input.soft{font-size:11px;font-weight:500;box-shadow:0 0 0 1.6px #D8D2C7}
+
+.empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:40px 20px;text-align:center}
+.empty__ic{opacity:.45}
+.empty__t{font-size:13px;font-weight:600;color:var(--ink-2)}
+.empty__s{font-size:11.5px;color:var(--faint);max-width:240px;line-height:1.6}
+
+/* ============================================================
+   Splitter
+   ============================================================ */
+.splitter{width:13px;flex:none;cursor:col-resize;display:grid;place-items:center;position:relative;z-index:3}
+.splitter::after{content:'';width:3px;height:34px;border-radius:3px;background:var(--line);transition:.2s var(--ease)}
+.splitter:hover::after,.splitter.on::after{background:var(--jade);height:70px}
+body.resizing{cursor:col-resize}
+body.resizing *{user-select:none !important}
+
+/* ============================================================
+   FX / Toast / Modal / Help
+   ============================================================ */
+#fxLayer{position:fixed;inset:0;pointer-events:none;z-index:120}
+.fx-shard{position:fixed;border-radius:2px;opacity:1;transition:transform .74s cubic-bezier(.25,.6,.3,1),opacity .74s ease-out}
+.fx-ring{position:fixed;border-radius:15px;border:2px solid var(--sec,#0F8A6B);transition:transform .42s ease-out,opacity .42s ease-out;opacity:.9}
+
+#toasts{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:11px;background:#1D1B18;color:#fff;padding:10px 12px 10px 14px;border-radius:12px;box-shadow:var(--sh-3);font-size:12.5px;font-weight:500;animation:toastIn .32s var(--ease);position:relative;overflow:hidden;max-width:min(560px,80vw)}
+@keyframes toastIn{from{opacity:0;transform:translateY(14px) scale(.96)}}
+.toast.out{animation:toastOut .24s var(--ease) forwards}
+@keyframes toastOut{to{opacity:0;transform:translateY(8px) scale(.97)}}
+.toast__ic{display:grid;place-items:center;flex:none;color:#7FD8BE}
+.toast--warn .toast__ic{color:#F0B860}
+.toast__msg{line-height:1.45}
+.toast__act{flex:none;font-size:12px;font-weight:650;color:#7FD8BE;padding:3px 9px;border-radius:7px;background:rgba(127,216,190,.14);transition:.16s var(--ease)}
+.toast__act:hover{background:rgba(127,216,190,.28)}
+.toast__bar{position:absolute;left:0;bottom:0;height:2px;background:#7FD8BE;animation:bar linear forwards}
+@keyframes bar{from{width:100%}to{width:0}}
+
+.modal{position:fixed;inset:0;z-index:300;display:grid;place-items:center}
+.modal__mask{position:absolute;inset:0;background:rgba(30,25,18,.34);backdrop-filter:blur(4px);animation:fade .22s}
+@keyframes fade{from{opacity:0}}
+.modal__box{position:relative;width:min(520px,92vw);background:#fff;border-radius:18px;box-shadow:var(--sh-3);padding:20px;animation:modalIn .3s var(--ease);display:flex;flex-direction:column;gap:13px}
+@keyframes modalIn{from{opacity:0;transform:translateY(16px) scale(.97)}}
+.modal__h{display:flex;align-items:flex-start;gap:10px}
+.modal__h h3{margin:0;font-size:15px;font-weight:650;letter-spacing:-.01em}
+.modal__h p{margin:4px 0 0;font-size:11.5px;color:var(--muted);line-height:1.55}
+.modal__h .ico-btn{margin-left:auto;width:28px;height:28px;flex:none}
+.seg{display:inline-flex;background:var(--panel-soft);border:1px solid var(--line);border-radius:10px;padding:2px;align-self:flex-start}
+.seg button{height:26px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:550;color:var(--muted);transition:.16s var(--ease)}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:var(--sh-1)}
+.code{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;font-size:11px;background:var(--panel-soft);padding:1.5px 5px;border-radius:5px;border:1px solid var(--line)}
+.modal textarea{width:100%;height:164px;border:1px solid var(--line);border-radius:12px;background:var(--panel-soft);padding:11px;font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;font-size:11.5px;line-height:1.6;outline:none;resize:none;transition:.18s var(--ease)}
+.modal textarea:focus{background:#fff;border-color:#BFE6DA;box-shadow:0 0 0 3px var(--jade-soft)}
+.dropzone{border:1.6px dashed #DCD6CB;border-radius:14px;padding:26px;text-align:center;color:var(--muted);font-size:12.5px;background:var(--panel-soft);transition:.18s var(--ease);cursor:pointer;line-height:1.7}
+.dropzone:hover,.dropzone.hot{border-color:var(--jade);background:var(--jade-soft);color:var(--jade)}
+.dropzone b{color:var(--ink)}
+.modal__f{display:flex;align-items:center;gap:9px;justify-content:flex-end}
+.modal__f .tip{margin-right:auto;font-size:11.5px;color:var(--muted)}
+
+.help{position:fixed;z-index:250;top:64px;right:24px;width:312px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-3);padding:15px;animation:modalIn .24s var(--ease)}
+.help h4{margin:0 0 9px;font-size:12.5px;font-weight:650;display:flex;align-items:center;gap:7px}
+.help h4::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--jade)}
+.kbd-row{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:12px;color:var(--ink-2)}
+.kbd-row:not(:last-child){border-bottom:1px solid var(--line-2)}
+.kbd-row span{flex:1}
+.kbd-row em{font-style:normal;color:var(--faint);font-size:11px}
+kbd{font-family:var(--font);font-size:10.5px;font-weight:600;color:var(--ink-2);background:var(--panel-soft);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:2px 6px;white-space:nowrap}
+
+[hidden]{display:none !important}
+
+@media (max-width:1080px){
+  .main{flex-direction:column;gap:12px}
+  .panel--tabs{width:auto;height:46%}
+  .splitter{display:none}
+  .pane-tree{width:160px}
+  .topbar__right .stats{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= TOP BAR ================= -->
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand__mark" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="10" height="10" rx="3" fill="#0F8A6B"/>
+        <rect x="12.5" y="1.5" width="10" height="10" rx="3" fill="#2C6FDB"/>
+        <rect x="1.5" y="12.5" width="10" height="10" rx="3" fill="#E0473E"/>
+        <rect x="12.5" y="12.5" width="10" height="10" rx="3" fill="#D9A220"/>
+      </svg>
+      <div class="brand__txt">
+        <span class="brand__name">TabNest</span>
+        <span class="brand__cn">标签巢</span>
+        <span class="brand__demo">DEMO</span>
+      </div>
+    </div>
+
+    <label class="search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="7" cy="7" r="4.6"/><path d="M10.6 10.6 14 14"/>
+      </svg>
+      <input id="search" type="text" placeholder="搜索标签页与书签…" autocomplete="off" spellcheck="false">
+      <kbd>/</kbd>
+    </label>
+
+    <div class="topbar__right">
+      <div class="stats" id="stats"></div>
+      <div class="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
+      <button class="ico-btn" id="helpBtn" title="快捷键">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.5.2-.6.6-.6 1v.4"/>
+          <circle cx="8" cy="12.4" r=".85" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main" id="main">
+
+    <!-- ---------- LEFT : TABS ---------- -->
+    <section class="panel panel--tabs" id="panelTabs">
+
+      <!-- 快捷站点 -->
+      <div class="pane-quick" id="paneQuick">
+        <div class="sec-head">
+          <div class="sec-title">快捷站点</div>
+          <div class="sec-hint">常用网站，一键直达</div>
+          <div class="sec-ops">
+            <button class="btn btn--sm btn--ghost" data-act="quick-toggle">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>
+              新增
+            </button>
+          </div>
+        </div>
+        <div class="quick-grid" id="quickGrid"></div>
+        <form class="quick-form" id="quickForm" hidden autocomplete="off">
+          <input class="fld" id="qfName" placeholder="名称，如：知乎" maxlength="24">
+          <input class="fld" id="qfUrl" placeholder="网址，如：zhihu.com" spellcheck="false">
+          <div style="display:flex;gap:6px">
+            <button class="btn btn--dark btn--sm" type="submit" id="qfOk">保存</button>
+            <button class="btn btn--sm" type="button" id="qfCancel">取消</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 已打开标签 -->
+      <div class="pane-tabs">
+        <div class="sec-head" id="tabHead"></div>
+        <div class="grid tab-grid scroll" id="tabGrid"></div>
+      </div>
+    </section>
+
+    <div class="splitter" id="splitter"></div>
+
+    <!-- ---------- RIGHT : BOOKMARKS ---------- -->
+    <section class="panel panel--bm" id="panelBm">
+
+      <aside class="pane-tree">
+        <div class="sec-head">
+          <div class="sec-title" style="font-size:12px">书签文件夹</div>
+        </div>
+        <nav class="tree scroll" id="tree"></nav>
+        <div class="pane-tree__foot" id="treeFoot"></div>
+      </aside>
+
+      <div class="pane-main" id="paneMain">
+        <div class="sec-head" id="bmHead"></div>
+        <div class="crumb" id="bmCrumb"></div>
+        <div class="subchips" id="bmSub"></div>
+        <div class="grid bm-grid scroll" id="bmGrid"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ================= FX / OVERLAYS ================= -->
+<div id="fxLayer"></div>
+<div id="toasts"></div>
+
+<div class="modal" id="importModal" hidden>
+  <div class="modal__mask" data-act="close-modal"></div>
+  <div class="modal__box">
+    <div class="modal__h">
+      <div>
+        <h3>批量新增书签</h3>
+        <p>导入 JSON 文件，自动追加到「<b id="impTarget">收藏夹栏</b>」。支持
+           <span class="code">[{"name":"掘金","url":"https://juejin.cn"}]</span> 以及 Chrome 导出的书签格式。</p>
+      </div>
+      <button class="ico-btn" data-act="close-modal" title="关闭">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
+
+    <div class="seg" id="impSeg">
+      <button class="on" data-mode="file">选择文件</button>
+      <button data-mode="paste">粘贴 JSON</button>
+    </div>
+
+    <div id="impFilePane">
+      <div class="dropzone" id="dropzone">
+        拖拽 <b>.json</b> 文件到这里<br>或点击选择文件
+        <input type="file" id="fileInput" accept=".json,application/json" hidden>
+      </div>
+    </div>
+
+    <div id="impPastePane" hidden>
+      <textarea id="jsonText" spellcheck="false" placeholder='[
+  { "name": "V2EX", "url": "https://www.v2ex.com" },
+  { "name": "Product Hunt", "url": "https://www.producthunt.com" }
+]'></textarea>
+    </div>
+
+    <div class="modal__f">
+      <span class="tip" id="impTip">还没选择文件</span>
+      <button class="btn btn--sm" data-act="imp-sample">填入示例</button>
+      <button class="btn btn--sm" data-act="close-modal">取消</button>
+      <button class="btn btn--sm btn--dark" data-act="imp-ok" id="impOk">导入</button>
+    </div>
+  </div>
+</div>
+
+<div class="help" id="help" hidden>
+  <h4>快捷键与操作</h4>
+  <div class="kbd-row"><span>撤回删除</span><em>书签</em><kbd>Ctrl</kbd><kbd>Z</kbd></div>
+  <div class="kbd-row"><span>多选 / 范围选择</span><em>卡片</em><kbd>Ctrl</kbd><kbd>点击</kbd><kbd>Shift</kbd></div>
+  <div class="kbd-row"><span>勾选任意卡片后进入多选模式</span><em>单击即勾选</em><kbd>点击</kbd></div>
+  <div class="kbd-row"><span>批量删除选中书签</span><em>Delete</em><kbd>Del</kbd></div>
+  <div class="kbd-row"><span>取消全部选择 / 关闭弹窗</span><kbd>Esc</kbd></div>
+  <div class="kbd-row"><span>聚焦搜索框</span><kbd>/</kbd></div>
+  <div class="kbd-row"><span>拖拽标签到右侧</span><em>加入书签</em><kbd>Drag</kbd></div>
+  <div class="kbd-row"><span>拖拽卡片</span><em>排序</em><kbd>Drag</kbd></div>
+</div>
+
+<script>
+/* ============================================================================
+   0. 工具
+   ============================================================================ */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const TILE_COLORS = ['#DC4438','#E4692B','#C77D18','#5C9A2E','#0F8A6B','#0C7C99','#2C6FDB','#5B5BD6','#8E4EC6','#D6409F','#B5533C','#0E7490'];
+
+function hashOf(str){ let h = 0; str = String(str || '?'); for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return Math.abs(h); }
+function colorFor(seed){ return TILE_COLORS[hashOf(seed) % TILE_COLORS.length]; }
+function shade(hex, amt){
+  const n = parseInt(hex.slice(1), 16);
+  const cl = v => Math.max(0, Math.min(255, Math.round(v)));
+  const r = cl((n >> 16) + amt * 2.55), g = cl(((n >> 8) & 255) + amt * 2.55), b = cl((n & 255) + amt * 2.55);
+  return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+}
+function hostOf(url){
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return String(url || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]; }
+}
+function normalizeUrl(v){
+  v = String(v || '').trim();
+  if (!v) return '';
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) v = 'https://' + v;
+  try { new URL(v); return v; } catch { return ''; }
+}
+function firstChar(s){
+  const m = String(s || '').trim().match(/[A-Za-z0-9\u4e00-\u9fa5]/);
+  return m ? m[0].toUpperCase() : '?';
+}
+function scrollInto(el, opts){
+  if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView(opts || { block: 'nearest', behavior: 'smooth' });
+}
+function scrollBottom(el){
+  if (el && typeof el.scrollTo === 'function') el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+}
+function truncate(s, n){ s = String(s || ''); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+const ICON = {
+  plus  : '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>',
+  x     : '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+  up    : '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.6V3M5.1 5.9 8 3l2.9 2.9M2.8 11.2v1.4a.9.9 0 0 0 .9.9h8.6a.9.9 0 0 0 .9-.9v-1.4"/></svg>',
+  pencil: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.2 2.6l2.2 2.2-8 8-2.8.6.6-2.8z"/></svg>',
+  chev  : '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 1.8 7 5l-3.5 3.2"/></svg>',
+  folder: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"><path d="M1.8 4.1c0-.7.6-1.3 1.3-1.3h2.2l1.2 1.6h5.4c.7 0 1.3.6 1.3 1.3v5.9c0 .7-.6 1.3-1.3 1.3H3.1c-.7 0-1.3-.6-1.3-1.3z"/></svg>',
+  check : '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 8.4l3 3 6.2-6.6"/></svg>',
+  warn  : '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 2.6 14.6 13.4H1.4z" stroke-linejoin="round"/><path d="M8 6.4v3.2"/><circle cx="8" cy="11.5" r=".8" fill="currentColor" stroke="none"/></svg>',
+};
+
+/* ============================================================================
+   1. 假数据
+   ============================================================================ */
+let quickSites = [
+  { id: uid(), name: '百度',     url: 'https://www.baidu.com' },
+  { id: uid(), name: '哔哩哔哩', url: 'https://www.bilibili.com' },
+  { id: uid(), name: 'GitHub',   url: 'https://github.com' },
+  { id: uid(), name: '知乎',     url: 'https://www.zhihu.com' },
+  { id: uid(), name: '掘金',     url: 'https://juejin.cn' },
+  { id: uid(), name: '微博',     url: 'https://weibo.com' },
+  { id: uid(), name: '淘宝',     url: 'https://www.taobao.com' },
+  { id: uid(), name: 'ChatGPT',  url: 'https://chat.openai.com' },
+];
+
+let tabList = [
+  { id: uid(), title: 'GitHub · 构建、发布与协作，一站搞定',            url: 'https://github.com' },
+  { id: uid(), title: '掘金 - 代码不止，掘金不停',                      url: 'https://juejin.cn' },
+  { id: uid(), title: 'Vite | 下一代的前端构建工具',                    url: 'https://vitejs.dev' },
+  { id: uid(), title: 'MDN Web Docs · 面向开发者的 Web 技术权威文档',    url: 'https://developer.mozilla.org' },
+  { id: uid(), title: 'Dribbble - 发现全球顶尖设计师的灵感社区',         url: 'https://dribbble.com' },
+  { id: uid(), title: '腾讯文档 - 在线文档、表格、幻灯片，多人协作',      url: 'https://docs.qq.com' },
+  { id: uid(), title: 'ChatGPT',                                       url: 'https://chat.openai.com' },
+  { id: uid(), title: '知乎 - 有问题，就会有答案',                       url: 'https://www.zhihu.com' },
+  { id: uid(), title: 'Stack Overflow - Where Developers Learn & Share', url: 'https://stackoverflow.com' },
+  { id: uid(), title: 'bilibili - 哔哩哔哩，干杯 (゜-゜)つロ',            url: 'https://www.bilibili.com' },
+  { id: uid(), title: '少数派 - 高效工作，品质生活',                     url: 'https://sspai.com' },
+  { id: uid(), title: 'Figma: 协作式界面设计工具',                      url: 'https://www.figma.com' },
+  { id: uid(), title: 'Vue.js - 渐进式 JavaScript 框架',                url: 'https://cn.vuejs.org' },
+  { id: uid(), title: 'Tailwind CSS - 只需书写 HTML 就能构建现代网站',   url: 'https://tailwindcss.com' },
+  { id: uid(), title: 'Cloudflare Dashboard',                          url: 'https://dash.cloudflare.com' },
+];
+
+const mk = (name, url) => ({ id: uid(), name, url });
+let folders = [
+  { id: 'bar', name: '收藏夹栏', color: '#2C6FDB', parent: null, marks: [
+    mk('GitHub', 'https://github.com'),
+    mk('掘金', 'https://juejin.cn'),
+    mk('知乎', 'https://www.zhihu.com'),
+    mk('哔哩哔哩', 'https://www.bilibili.com'),
+    mk('少数派', 'https://sspai.com'),
+    mk('微博', 'https://weibo.com'),
+    mk('豆瓣', 'https://www.douban.com'),
+    mk('Product Hunt', 'https://www.producthunt.com'),
+    mk('V2EX', 'https://www.v2ex.com'),
+  ]},
+  { id: 'work', name: '工作', color: '#0F8A6B', parent: 'bar', marks: [
+    mk('Figma', 'https://www.figma.com'),
+    mk('Notion', 'https://www.notion.so'),
+    mk('语雀', 'https://www.yuque.com'),
+    mk('腾讯文档', 'https://docs.qq.com'),
+    mk('Slack', 'https://slack.com'),
+  ]},
+  { id: 'tools', name: '常用工具', color: '#C77D18', parent: 'work', marks: [
+    mk('MDN', 'https://developer.mozilla.org'),
+    mk('Can I use', 'https://caniuse.com'),
+    mk('Regex101', 'https://regex101.com'),
+    mk('Squoosh', 'https://squoosh.app'),
+  ]},
+  { id: 'design', name: '设计灵感', color: '#D6409F', parent: 'bar', marks: [
+    mk('Dribbble', 'https://dribbble.com'),
+    mk('Behance', 'https://www.behance.net'),
+    mk('Awwwards', 'https://www.awwwards.com'),
+    mk('Pinterest', 'https://www.pinterest.com'),
+    mk('Fonts In Use', 'https://fontsinuse.com'),
+  ]},
+  { id: 'learn', name: '学习资料', color: '#8E4EC6', parent: null, marks: [
+    mk('Coursera', 'https://www.coursera.org'),
+    mk('阮一峰的网络日志', 'https://www.ruanyifeng.com/blog'),
+    mk('Docker 从入门到实践', 'https://yeasy.gitbook.io/docker_practice'),
+    mk('菜鸟教程', 'https://www.runoob.com'),
+  ]},
+  { id: 'later', name: '稍后阅读', color: '#B5533C', parent: null, marks: [
+    mk('少数派', 'https://sspai.com'),
+    mk('Hacker News', 'https://news.ycombinator.com'),
+    mk('张鑫旭 - 鑫空间', 'https://www.zhangxinxu.com'),
+  ]},
+];
+
+/* ============================================================================
+   2. 状态
+   ============================================================================ */
+let currentFolder = 'bar';
+const collapsed   = new Set();
+const selectedTabs = new Set();
+const selectedBms  = new Set();
+const undoStack    = [];
+let query = '';
+let editingField = null;      // {id, field}
+let pendingNew   = null;      // 新建书签后待聚焦
+let editingQuick = null;
+let drag = null;
+let mouseDownTarget = null;
+
+const fxLayer = $('#fxLayer'), toasts = $('#toasts');
+const quickGrid = $('#quickGrid'), quickForm = $('#quickForm');
+const qfName = $('#qfName'), qfUrl = $('#qfUrl'), qfOk = $('#qfOk');
+const tabGrid = $('#tabGrid'), tabHead = $('#tabHead');
+const tree = $('#tree'), treeFoot = $('#treeFoot');
+const bmGrid = $('#bmGrid'), bmHead = $('#bmHead'), bmCrumb = $('#bmCrumb'), bmSub = $('#bmSub');
+const paneMain = $('#paneMain'), panelTabs = $('#panelTabs'), splitter = $('#splitter'), mainEl = $('#main');
+const impModal = $('#importModal'), fileInput = $('#fileInput'), jsonText = $('#jsonText');
+const dropzone = $('#dropzone'), impTip = $('#impTip'), impOk = $('#impOk'), impTarget = $('#impTarget');
+const helpBox = $('#help');
+
+/* ============================================================================
+   3. 数据访问
+   ============================================================================ */
+const folderById = id => folders.find(f => f.id === id);
+const childrenOf = id => folders.filter(f => f.parent === id);
+const curFolder  = () => folderById(currentFolder) || folders[0];
+function countOf(id){ return folderById(id).marks.length + childrenOf(id).reduce((a, c) => a + countOf(c.id), 0); }
+function totalBms(){ return folders.reduce((a, f) => a + f.marks.length, 0); }
+function bmItem(id){ for (const f of folders){ const m = f.marks.find(x => x.id === id); if (m) return m; } return null; }
+function bmOwner(id){ for (const f of folders){ if (f.marks.some(x => x.id === id)) return f; } return null; }
+
+function visibleTabs(){
+  const q = query.trim().toLowerCase();
+  if (!q) return tabList;
+  return tabList.filter(t => t.title.toLowerCase().includes(q) || hostOf(t.url).includes(q));
+}
+function visibleBms(){
+  const q = query.trim().toLowerCase();
+  const list = curFolder().marks;
+  if (!q) return list;
+  return list.filter(b => (b.name || '').toLowerCase().includes(q) || hostOf(b.url).includes(q));
+}
+
+/* ============================================================================
+   4. FLIP 位移补间
+   ============================================================================ */
+function flip(container, mutate){
+  const before = new Map();
+  container.querySelectorAll('[data-key]').forEach(el => before.set(el.dataset.key, el.getBoundingClientRect()));
+  mutate();
+  container.querySelectorAll('[data-key]').forEach(el => {
+    const b = before.get(el.dataset.key);
+    if (!b) return;
+    const a = el.getBoundingClientRect();
+    const dx = b.left - a.left, dy = b.top - a.top;
+    if (Math.abs(dx) < 1.2 && Math.abs(dy) < 1.2) return;
+    el.style.transition = 'none';
+    el.style.transform  = `translate(${dx}px, ${dy}px)`;
+    requestAnimationFrame(() => {
+      el.style.transition = 'transform .42s cubic-bezier(.22,.8,.28,1)';
+      el.style.transform  = '';
+      setTimeout(() => { el.style.transition = ''; }, 460);
+    });
+  });
+}
+
+/* ============================================================================
+   5. 粉碎动画
+   ============================================================================ */
+function shatter(rect, color, count){
+  const ring = document.createElement('div');
+  ring.className = 'fx-ring';
+  ring.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px`;
+  fxLayer.appendChild(ring);
+  requestAnimationFrame(() => { ring.style.transform = 'scale(1.12)'; ring.style.opacity = '0'; });
+  setTimeout(() => ring.remove(), 480);
+
+  for (let i = 0; i < count; i++){
+    const s = document.createElement('i');
+    s.className = 'fx-shard';
+    const size = 3 + Math.random() * 8;
+    const bg = i % 4 === 0 ? color : i % 4 === 1 ? shade(color, 16) : i % 4 === 2 ? shade(color, -14) : '#D5CFC4';
+    s.style.cssText = `left:${rect.left + Math.random() * rect.width}px;top:${rect.top + Math.random() * rect.height}px;` +
+                      `width:${size}px;height:${size}px;background:${bg};border-radius:${Math.random() < .45 ? '50%' : '2px'}`;
+    fxLayer.appendChild(s);
+    const ang = Math.random() * Math.PI * 2, dist = 32 + Math.random() * 98;
+    const dx = Math.cos(ang) * dist, dy = Math.sin(ang) * dist - 16;
+    requestAnimationFrame(() => {
+      s.style.transform = `translate3d(${dx}px,${dy}px,0) rotate(${Math.random() * 720 - 360}deg) scale(${0.3 + Math.random() * 0.6})`;
+      s.style.opacity = '0';
+    });
+    setTimeout(() => s.remove(), 820);
+  }
+}
+function crushCards(cards, colorOf){
+  let maxDelay = 0;
+  cards.forEach((el, i) => {
+    if (i > 16) return;                                   // 批量关闭时限制粒子总量
+    const r = el.getBoundingClientRect();
+    shatter(r, colorOf(el), 12 - Math.min(6, Math.floor(cards.length / 3)));
+    el.style.animationDelay = (i * 30) + 'ms';
+    el.classList.add('is-closing');
+    maxDelay = Math.max(maxDelay, i * 30);
+  });
+  return cards.length ? maxDelay + 300 : 0;
+}
+
+/* ============================================================================
+   6. Toast
+   ============================================================================ */
+function toast(msg, opt = {}){
+  const { action, onAction, tone, duration = 4600 } = opt;
+  const el = document.createElement('div');
+  el.className = 'toast' + (tone === 'warn' ? ' toast--warn' : '');
+  el.innerHTML = `<span class="toast__ic">${tone === 'warn' ? ICON.warn : ICON.check}</span>
+    <span class="toast__msg">${esc(msg)}</span>
+    ${action ? `<button class="toast__act">${esc(action)}</button>` : ''}
+    <span class="toast__bar" style="animation-duration:${duration}ms"></span>`;
+  const close = () => { if (el.dataset.gone) return; el.dataset.gone = '1'; el.classList.add('out'); setTimeout(() => el.remove(), 240); };
+  if (action) el.querySelector('.toast__act').addEventListener('click', () => { close(); onAction && onAction(); });
+  toasts.appendChild(el);
+  setTimeout(close, duration);
+  while (toasts.children.length > 4) toasts.firstElementChild.remove();
+}
+
+/* ============================================================================
+   7. 渲染 · 快捷站点
+   ============================================================================ */
+function renderQuick(){
+  const q = query.trim().toLowerCase();
+  const list = quickSites.filter(s => !q || s.name.toLowerCase().includes(q) || hostOf(s.url).includes(q));
+  quickGrid.innerHTML = list.map(s => {
+    const c = colorFor(s.name);
+    return `<div class="quick-tile" data-act="quick-open" data-id="${s.id}" data-url="${esc(s.url)}" title="${esc(s.name)} · ${esc(hostOf(s.url))}">
+      <span class="quick-tile__ic" style="--c:${c};--c2:${shade(c, -18)}">${esc(firstChar(s.name))}</span>
+      <span class="quick-tile__nm">${esc(s.name)}</span>
+      <span class="quick-tile__ops">
+        <button class="mini" data-act="quick-edit" data-id="${s.id}" title="编辑">${ICON.pencil}</button>
+        <button class="mini mini--del" data-act="quick-del" data-id="${s.id}" title="删除">${ICON.x}</button>
+      </span>
+    </div>`;
+  }).join('') + `<div class="quick-tile quick-tile--add" data-act="quick-toggle" title="新增快捷站点">
+      <span class="quick-tile__ic">+</span><span class="quick-tile__nm">新增</span></div>`;
+}
+function openQuickForm(item){
+  editingQuick = item || null;
+  quickForm.hidden = false;
+  qfName.value = item ? item.name : '';
+  qfUrl.value  = item ? hostOf(item.url) : '';
+  qfOk.textContent = item ? '保存' : '添加';
+  qfName.focus();
+}
+function closeQuickForm(){ quickForm.hidden = true; editingQuick = null; qfName.value = qfUrl.value = ''; }
+
+/* ============================================================================
+   8. 渲染 · 标签
+   ============================================================================ */
+function tabCardHTML(t, i, enter){
+  const c = colorFor(hostOf(t.url));
+  const sel = selectedTabs.has(t.id);
+  return `<article class="tab-card${sel ? ' is-sel' : ''}${enter ? ' enter' : ''}" data-key="${t.id}" data-act="card-tab"
+      data-id="${t.id}" data-url="${esc(t.url)}" draggable="true"
+      style="--c:${c};${enter ? `animation-delay:${Math.min(i * 26, 340)}ms` : ''}"
+      title="${esc(t.title)}">
+    <div class="tab-card__top">
+      <span class="tile" style="--c:${c};--c2:${shade(c, -18)}">${esc(firstChar(hostOf(t.url)))}</span>
+      <div class="tab-card__ttl">${esc(t.title)}</div>
+    </div>
+    <div class="tab-card__btm">
+      <button class="pick${sel ? ' is-on' : ''}" data-act="pick-tab" data-id="${t.id}" title="选择"></button>
+      <div class="tab-card__host">${esc(hostOf(t.url))}</div>
+    </div>
+    <button class="xbtn" data-act="close-tab" data-id="${t.id}" title="关闭标签">${ICON.x}</button>
+  </article>`;
+}
+let firstTabsRender = true;
+function renderTabs(){
+  const list = visibleTabs();
+  const enter = firstTabsRender; firstTabsRender = false;
+  tabGrid.classList.toggle('select-mode', selectedTabs.size > 0);
+  flip(tabGrid, () => {
+    tabGrid.innerHTML = list.length
+      ? list.map((t, i) => tabCardHTML(t, i, enter)).join('')
+      : emptyHTML('tabs');
+  });
+}
+function renderTabHead(){
+  const sel = selectedTabs.size, total = visibleTabs().length;
+  tabHead.innerHTML = sel > 0
+    ? `<div class="sec-title">已打开的标签</div>
+       <span class="count-pill" style="color:var(--danger);background:var(--danger-soft)">已选 ${sel}</span>
+       <div class="sec-hint">多选模式 · 单击卡片即勾选，不再打开网站</div>
+       <div class="sec-ops">
+         <button class="btn btn--sm btn--ghost" data-act="clear-tabs">取消选择</button>
+         <button class="btn btn--sm btn--danger" data-act="close-sel-tabs">
+           ${ICON.x.replace('<svg','<svg style="width:11px;height:11px"')} 关闭选中</button>
+       </div>`
+    : `<div class="sec-title">已打开的标签</div>
+       <span class="count-pill">${total}</span>
+       <div class="sec-hint">拖拽排序 · 拖到右侧存为书签</div>
+       <div class="sec-ops"><button class="btn btn--sm" data-act="all-tabs">全选</button></div>`;
+}
+function afterTabSel(){ renderTabs(); renderTabHead(); renderStats(); }
+
+/* ============================================================================
+   9. 渲染 · 书签树 / 面包屑 / 子文件夹
+   ============================================================================ */
+function renderTree(){
+  const build = (parentId, depth) => folders.filter(f => f.parent === parentId).map(f => {
+    const kids = childrenOf(f.id);
+    const open = !collapsed.has(f.id);
+    return `<div class="tree-row${f.id === currentFolder ? ' is-active' : ''}" data-act="goto" data-folder="${f.id}"
+        data-drop-folder="${f.id}" style="--d:${depth}" title="${esc(f.name)}">
+      ${kids.length ? `<button class="tree-caret${open ? ' is-open' : ''}" data-act="caret" data-id="${f.id}">${ICON.chev}</button>`
+                    : `<span class="tree-caret tree-caret--empty"></span>`}
+      <span class="tree-ic" style="color:${f.color}">${ICON.folder}</span>
+      <span class="tree-name">${esc(f.name)}</span>
+      <span class="tree-count">${countOf(f.id)}</span>
+    </div>` + (kids.length && open ? build(f.id, depth + 1) : '');
+  }).join('');
+  tree.innerHTML = build(null, 0);
+  treeFoot.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:var(--jade);display:block"></span>
+    共 ${totalBms()} 个书签 · ${folders.length} 个文件夹`;
+}
+function renderBmCrumb(){
+  const chain = [];
+  let cur = curFolder();
+  while (cur){ chain.unshift(cur); cur = folderById(cur.parent); }
+  if (chain.length <= 1){ bmCrumb.hidden = true; return; }
+  bmCrumb.hidden = false;
+  bmCrumb.innerHTML = chain.slice(0, -1).map(x =>
+    `<button data-act="goto" data-folder="${x.id}">${esc(x.name)}</button><span class="sep">/</span>`
+  ).join('') + `<span class="cur">${esc(chain[chain.length - 1].name)}</span>`;
+}
+function renderBmSub(){
+  const kids = childrenOf(currentFolder);
+  if (!kids.length){ bmSub.hidden = true; return; }
+  bmSub.hidden = false;
+  bmSub.innerHTML = kids.map(k =>
+    `<button class="chip" data-act="goto" data-folder="${k.id}">
+       <span style="color:${k.color};display:grid;place-items:center">${ICON.folder}</span>
+       <b>${esc(k.name)}</b><span class="n">${countOf(k.id)}</span>
+     </button>`).join('');
+}
+function renderBmHead(){
+  const f = curFolder(), sel = selectedBms.size, n = visibleBms().length;
+  const ops = sel > 0
+    ? `<button class="btn btn--sm btn--ghost" data-act="clear-bms">取消</button>
+       <button class="btn btn--sm btn--danger" data-act="del-sel-bms">删除选中 · ${sel}</button>
+       <button class="btn btn--sm btn--dark" data-act="add-bm">${ICON.plus} 新建</button>`
+    : `<button class="btn btn--sm" data-act="all-bms">全选</button>
+       <button class="btn btn--sm btn--dark" data-act="add-bm">${ICON.plus} 新建</button>
+       <button class="btn btn--sm" data-act="open-import">${ICON.up} 导入 JSON</button>`;
+  bmHead.innerHTML = `<div class="sec-title">${esc(f.name)}</div>
+    <span class="count-pill">${n}</span>
+    ${sel > 0 ? '<div class="sec-hint">多选模式 · 单击卡片即勾选</div>' : ''}
+    <div class="sec-ops">${ops}</div>`;
+}
+
+/* ============================================================================
+   10. 渲染 · 书签卡片
+   ============================================================================ */
+function bmCardHTML(b, i, enter){
+  const c = colorFor(b.name || b.url || '?');
+  const sel = selectedBms.has(b.id);
+  return `<article class="bm-card${sel ? ' is-sel' : ''}${enter ? ' enter' : ''}" data-key="${b.id}"
+      data-act="card-bm" data-id="${b.id}" data-url="${esc(b.url)}" draggable="true"
+      style="${enter ? `animation-delay:${Math.min(i * 22, 320)}ms` : ''}">
+    <span class="tile" style="--c:${c};--c2:${shade(c, -18)}">${esc(firstChar(b.name || hostOf(b.url)))}</span>
+    <div class="bm-card__meta">
+      <div class="bm-card__name" data-act="bm-edit" data-id="${b.id}" data-field="name"
+           ${b.name ? '' : 'data-empty="1"'} title="点击修改名称">${esc(b.name)}</div>
+      <div class="bm-card__host" data-act="bm-edit" data-id="${b.id}" data-field="url"
+           ${b.url ? '' : 'data-empty="1"'} title="点击修改域名">${esc(b.url ? hostOf(b.url) : '')}</div>
+    </div>
+    <div class="bm-card__ops">
+      <button class="pick${sel ? ' is-on' : ''}" data-act="pick-bm" data-id="${b.id}" title="选择"></button>
+      <button class="xbtn" data-act="del-bm" data-id="${b.id}" title="删除（可 Ctrl+Z 撤回）">${ICON.x}</button>
+    </div>
+  </article>`;
+}
+function emptyHTML(kind){
+  if (kind === 'tabs') return `<div class="empty">
+      <div class="empty__ic"><svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="#B6AFA4" stroke-width="1.6" stroke-linecap="round">
+        <rect x="6" y="10" width="26" height="20" rx="4"/><path d="M6 17h26"/><path d="M22 30v6h14a4 4 0 0 0 4-4V20a4 4 0 0 0-4-4h-1"/></svg></div>
+      <div class="empty__t">${query ? '没有匹配的标签页' : '没有正在打开的标签'}</div>
+      <div class="empty__s">${query ? '换个关键词试试' : '打开新的网页后，这里会自动出现卡片'}</div></div>`;
+  return `<div class="empty">
+      <div class="empty__ic"><svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="#B6AFA4" stroke-width="1.6" stroke-linejoin="round">
+        <path d="M6 14a3 3 0 0 1 3-3h8l3.5 4.5H39a3 3 0 0 1 3 3v17a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z"/><path d="M24 24v8M20 28h8"/></svg></div>
+      <div class="empty__t">${query ? '没有匹配的书签' : '这个文件夹还是空的'}</div>
+      <div class="empty__s">${query ? '换个关键词试试' : '点右上角「新建」，或把左边的标签拖进来'}</div></div>`;
+}
+let firstBmRender = true;
+function renderBmGrid(){
+  const list = visibleBms();
+  const enter = firstBmRender; firstBmRender = false;
+  bmGrid.classList.toggle('select-mode', selectedBms.size > 0);
+  flip(bmGrid, () => {
+    bmGrid.innerHTML = list.length
+      ? list.map((b, i) => bmCardHTML(b, i, enter)).join('')
+      : emptyHTML('bms');
+  });
+}
+
+function renderStats(){
+  $('#stats').innerHTML =
+    `<span><b>${tabList.length}</b> 个标签</span><i></i><span><b>${totalBms()}</b> 个书签</span>` +
+    (selectedTabs.size + selectedBms.size > 0
+      ? `<i></i><span style="color:var(--jade)">已选 <b style="color:var(--jade)">${selectedTabs.size + selectedBms.size}</b></span>` : '');
+}
+function renderAll(){
+  renderQuick(); renderTree(); renderBmCrumb(); renderBmSub();
+  renderTabHead(); renderTabs(); renderBmHead(); renderBmGrid(); renderStats();
+}
+
+/* ============================================================================
+   11. 标签：选择 / 关闭
+   ============================================================================ */
+function toggleTabSel(id, e){
+  const list = visibleTabs();
+  const idx = list.findIndex(t => t.id === id);
+  if (e && e.shiftKey && lastTabIdx != null && lastTabIdx >= 0){
+    const a = Math.min(lastTabIdx, idx), b = Math.max(lastTabIdx, idx);
+    for (let i = a; i <= b; i++) selectedTabs.add(list[i].id);
+    lastTabIdx = idx; return true;
+  }
+  if (selectedTabs.has(id)) selectedTabs.delete(id); else selectedTabs.add(id);
+  lastTabIdx = idx;
+  return true;
+}
+let lastTabIdx = null, lastBmIdx = null;
+
+function closeTabs(ids){
+  ids = ids.filter(id => tabList.some(t => t.id === id));
+  if (!ids.length) return;
+  const cards = ids.map(id => tabGrid.querySelector(`[data-key="${id}"]`)).filter(Boolean);
+  const colorOf = el => (el.style.getPropertyValue('--c') || '#2C6FDB').trim();
+  const wait = crushCards(cards, colorOf);
+  const count = ids.length;
+  const justClosed = tabList.find(t => t.id === ids[0]) || {};
+  setTimeout(() => {
+    tabList = tabList.filter(t => !ids.includes(t.id));
+    ids.forEach(id => selectedTabs.delete(id));
+    renderTabs(); renderTabHead(); renderStats();
+    toast(count === 1 ? `已关闭标签「${truncate(justClosed.title, 16)}」` : `已关闭 ${count} 个标签`);
+  }, wait || 10);
+}
+
+/* ============================================================================
+   12. 书签：新增 / 删除 / 撤回 / 编辑
+   ============================================================================ */
+function addBookmark(){
+  const f = curFolder();
+  const b = { id: uid(), name: '', url: '' };
+  f.marks.push(b);
+  pendingNew = b.id;
+  selectedBms.clear();
+  renderBmHead(); renderBmGrid(); renderTree();
+  requestAnimationFrame(() => {
+    const card = bmGrid.querySelector(`[data-key="${b.id}"]`);
+    if (card){ card.classList.add('is-flash'); scrollInto(card); }
+    startEdit(b.id, 'name');
+  });
+}
+function deleteBms(ids, silent){
+  const f = curFolder();
+  const removed = [];
+  ids.forEach(id => {
+    const idx = f.marks.findIndex(m => m.id === id);
+    if (idx > -1) removed.push({ folderId: f.id, index: idx, item: f.marks[idx] });
+  });
+  if (!removed.length) return;
+  const cards = ids.map(id => bmGrid.querySelector(`[data-key="${id}"]`)).filter(Boolean);
+  const colorOf = el => { const t = el.querySelector('.tile'); return t ? (t.style.getPropertyValue('--c') || '#0F8A6B').trim() : '#0F8A6B'; };
+  const wait = crushCards(cards, colorOf);
+
+  f.marks = f.marks.filter(m => !ids.includes(m.id));
+  ids.forEach(id => selectedBms.delete(id));
+  undoStack.push({ items: removed, at: Date.now() });
+  if (undoStack.length > 12) undoStack.shift();
+
+  setTimeout(() => {
+    renderBmHead(); renderBmGrid(); renderTree(); renderStats();
+    if (silent) return;
+    if (ids.length === 1 && !removed[0].item.name) return;
+    const label = ids.length === 1 ? `「${removed[0].item.name || hostOf(removed[0].item.url)}」` : `${ids.length} 个书签`;
+    toast(`已删除 ${label}`, { action: '撤回  Ctrl+Z', onAction: undoDelete });
+  }, wait || 10);
+}
+function undoDelete(){
+  const rec = undoStack.pop();
+  if (!rec){ toast('没有可撤回的删除操作', { tone: 'warn' }); return; }
+  const ids = rec.items.map(r => r.item.id);
+  [...rec.items].sort((a, b) => a.index - b.index).forEach(r => {
+    const f = folderById(r.folderId); if (!f) return;
+    f.marks.splice(Math.min(r.index, f.marks.length), 0, r.item);
+  });
+  if (rec.items[0] && rec.items[0].folderId !== currentFolder) currentFolder = rec.items[0].folderId;
+  renderTree(); renderBmCrumb(); renderBmSub(); renderBmHead(); renderBmGrid(); renderStats();
+  requestAnimationFrame(() => {
+    ids.forEach((id, i) => setTimeout(() => {
+      const el = bmGrid.querySelector(`[data-key="${id}"]`);
+      if (el){ el.classList.add('is-flash'); scrollInto(el); }
+    }, i * 45));
+  });
+  toast(`已撤回，恢复 ${rec.items.length} 个书签`, { action: '再删一次', onAction: () => deleteBms(ids) });
+}
+
+function startEdit(id, field){
+  const el = bmGrid.querySelector(`[data-key="${id}"] [data-field="${field}"]`);
+  if (!el || el.dataset.editing === '1') return;
+  const b = bmItem(id); if (!b) return;
+  editingField = { id, field };
+  el.dataset.editing = '1';
+  el.removeAttribute('data-empty');
+  el.textContent = '';
+
+  const inp = document.createElement('input');
+  inp.className = 'mini-input' + (field === 'url' ? ' soft' : '');
+  inp.value = field === 'name' ? (b.name || '') : (b.url ? hostOf(b.url) : '');
+  inp.placeholder = field === 'name' ? '输入名称' : '输入域名';
+  inp.spellcheck = false;
+  el.appendChild(inp);
+  inp.focus();
+  requestAnimationFrame(() => inp.select());
+
+  inp.addEventListener('keydown', ev => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter'){ ev.preventDefault(); inp.blur(); }
+    else if (ev.key === 'Escape'){
+      ev.preventDefault();
+      el.dataset.editing = '0';
+      const isNew = pendingNew === id;
+      pendingNew = null;
+      if (isNew && !b.name && !b.url){
+        const owner = bmOwner(id);
+        if (owner){ owner.marks = owner.marks.filter(m => m.id !== id); renderBmGrid(); renderTree(); renderStats(); }
+      } else {
+        el.textContent = field === 'name' ? (b.name || '') : (b.url ? hostOf(b.url) : '');
+        if (field === 'name' && !b.name) el.setAttribute('data-empty', '1');
+        if (field === 'url' && !b.url) el.setAttribute('data-empty', '1');
+      }
+      editingField = null;
+    }
+  });
+  inp.addEventListener('click', ev => ev.stopPropagation());
+  inp.addEventListener('blur', () => {
+    if (el.dataset.editing !== '1') return;
+    el.dataset.editing = '0';
+    commitEdit(id, field, inp.value);
+  });
+}
+function commitEdit(id, field, value){
+  const b = bmItem(id); if (!b) return;
+  const card = bmGrid.querySelector(`[data-key="${id}"]`); if (!card) return;
+  const v = String(value == null ? '' : value).trim();
+  if (field === 'name'){ if (v) b.name = v; }
+  else { const u = normalizeUrl(v); if (u) b.url = u; }
+  editingField = null;
+
+  const nameEl = card.querySelector('[data-field="name"]');
+  const hostEl = card.querySelector('[data-field="url"]');
+  nameEl.textContent = b.name || '';
+  b.name ? nameEl.removeAttribute('data-empty') : nameEl.setAttribute('data-empty', '1');
+  hostEl.textContent = b.url ? hostOf(b.url) : '';
+  b.url ? hostEl.removeAttribute('data-empty') : hostEl.setAttribute('data-empty', '1');
+  const tile = card.querySelector('.tile');
+  const c = colorFor(b.name || b.url || '?');
+  tile.style.setProperty('--c', c); tile.style.setProperty('--c2', shade(c, -18));
+  tile.textContent = firstChar(b.name || hostOf(b.url));
+  renderStats();
+
+  // 新建卡片：名称 → 自动跳到网址；两栏都空则静默移除
+  const clickedOther = mouseDownTarget && mouseDownTarget.closest && mouseDownTarget.closest('[data-field]');
+  if (pendingNew === id){
+    if (field === 'name' && !b.url && !clickedOther){ startEdit(id, 'url'); return; }
+    if (field === 'url'){
+      pendingNew = null;
+      if (!b.name && !b.url){
+        const f = bmOwner(id);
+        if (f){ f.marks = f.marks.filter(m => m.id !== id); renderBmGrid(); renderTree(); renderStats(); }
+      }
+    }
+  }
+}
+
+/* ============================================================================
+   13. 拖拽
+   ============================================================================ */
+function clearDropMarks(scope){ $$('.drop-b,.drop-a', scope).forEach(e => e.classList.remove('drop-b', 'drop-a')); }
+function clearDrag(){
+  $$('.dragging').forEach(e => e.classList.remove('dragging'));
+  $$('.drop-b,.drop-a').forEach(e => e.classList.remove('drop-b', 'drop-a'));
+  $$('.tree-row.is-drop').forEach(e => e.classList.remove('is-drop'));
+  paneMain.classList.remove('drop-ready');
+  const h = $('.drop-hint');
+  if (h) h.remove();
+  drag = null;
+}
+function selectedTabIdsInOrder(){ return tabList.filter(t => selectedTabs.has(t.id)).map(t => t.id); }
+
+tabGrid.addEventListener('dragstart', e => {
+  const card = e.target.closest('.tab-card'); if (!card) return;
+  const id = card.dataset.id;
+  const ids = selectedTabs.has(id) ? selectedTabIdsInOrder() : [id];
+  drag = { type: 'tab', ids, dropTarget: null };
+  e.dataTransfer.effectAllowed = 'copyMove';
+  e.dataTransfer.setData('text/plain', ids.join('|'));
+  const cards = ids.map(i => tabGrid.querySelector(`[data-key="${i}"]`)).filter(Boolean);
+  requestAnimationFrame(() => cards.forEach(c => c.classList.add('dragging')));
+});
+tabGrid.addEventListener('dragend', clearDrag);
+tabGrid.addEventListener('dragover', e => {
+  if (!drag || drag.type !== 'tab') return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const card = e.target.closest('.tab-card');
+  clearDropMarks(tabGrid);
+  if (!card) { drag.dropTarget = null; return; }
+  const r = card.getBoundingClientRect();
+  const before = e.clientX < r.left + r.width / 2;
+  card.classList.add(before ? 'drop-b' : 'drop-a');
+  drag.dropTarget = { id: card.dataset.id, before };
+});
+tabGrid.addEventListener('drop', e => {
+  if (!drag || drag.type !== 'tab') return;
+  e.preventDefault();
+  const t = drag.dropTarget, ids = drag.ids;
+  clearDropMarks(tabGrid);
+  if (!t || ids.includes(t.id)){ clearDrag(); return; }
+  if (query.trim()){ toast('搜索状态下不支持排序，请先清空搜索', { tone: 'warn' }); clearDrag(); return; }
+  const moving = tabList.filter(x => ids.includes(x.id));
+  const rest = tabList.filter(x => !ids.includes(x.id));
+  let idx = rest.findIndex(x => x.id === t.id);
+  idx = idx < 0 ? rest.length : (t.before ? idx : idx + 1);
+  rest.splice(idx, 0, ...moving);
+  tabList = rest;
+  clearDrag();
+  flip(tabGrid, () => { tabGrid.innerHTML = visibleTabs().map((x, i) => tabCardHTML(x, i, false)).join(''); });
+  toast(ids.length > 1 ? `已移动 ${ids.length} 个标签` : '已调整标签顺序');
+});
+
+bmGrid.addEventListener('dragstart', e => {
+  const card = e.target.closest('.bm-card'); if (!card) return;
+  const id = card.dataset.id;
+  const ids = selectedBms.has(id) ? visibleBms().filter(b => selectedBms.has(b.id)).map(b => b.id) : [id];
+  drag = { type: 'bm', ids, dropTarget: null };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', ids.join('|'));
+  const cards = ids.map(i => bmGrid.querySelector(`[data-key="${i}"]`)).filter(Boolean);
+  requestAnimationFrame(() => cards.forEach(c => c.classList.add('dragging')));
+});
+bmGrid.addEventListener('dragend', clearDrag);
+bmGrid.addEventListener('dragover', e => {
+  if (!drag || drag.type !== 'bm') return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const card = e.target.closest('.bm-card');
+  clearDropMarks(bmGrid);
+  if (!card) { drag.dropTarget = null; return; }
+  const r = card.getBoundingClientRect();
+  const before = e.clientX < r.left + r.width / 2;
+  card.classList.add(before ? 'drop-b' : 'drop-a');
+  drag.dropTarget = { id: card.dataset.id, before };
+});
+bmGrid.addEventListener('drop', e => {
+  if (!drag || drag.type !== 'bm') return;
+  e.preventDefault();
+  const t = drag.dropTarget, ids = drag.ids;
+  clearDropMarks(bmGrid);
+  if (!t || ids.includes(t.id)){ clearDrag(); return; }
+  const f = curFolder();
+  const moving = f.marks.filter(x => ids.includes(x.id));
+  const rest = f.marks.filter(x => !ids.includes(x.id));
+  let idx = rest.findIndex(x => x.id === t.id);
+  idx = idx < 0 ? rest.length : (t.before ? idx : idx + 1);
+  rest.splice(idx, 0, ...moving);
+  f.marks = rest;
+  clearDrag();
+  flip(bmGrid, () => { bmGrid.innerHTML = visibleBms().map((x, i) => bmCardHTML(x, i, false)).join(''); });
+  toast(ids.length > 1 ? `已移动 ${ids.length} 个书签` : '已调整书签顺序');
+});
+
+/* 标签 → 书签（书签面板 / 文件夹树） */
+function showDropHint(text){
+  paneMain.classList.add('drop-ready');
+  let h = $('.drop-hint');
+  if (!h){ h = document.createElement('div'); h.className = 'drop-hint'; paneMain.appendChild(h); }
+  h.textContent = text;
+}
+function hideDropHint(){
+  paneMain.classList.remove('drop-ready');
+  const h = $('.drop-hint'); if (h) h.remove();
+  $$('.tree-row.is-drop', tree).forEach(x => x.classList.remove('is-drop'));
+}
+tree.addEventListener('dragover', e => {
+  if (!drag || drag.type !== 'tab') return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  const row = e.target.closest('[data-drop-folder]');
+  $$('.tree-row.is-drop', tree).forEach(x => x.classList.remove('is-drop'));
+  if (row){
+    row.classList.add('is-drop');
+    const f = folderById(row.dataset.dropFolder);
+    if (f){ paneMain.classList.add('drop-ready'); $('.drop-hint')?.remove(); }
+  }
+});
+tree.addEventListener('dragleave', () => { $$('.tree-row.is-drop', tree).forEach(x => x.classList.remove('is-drop')); });
+tree.addEventListener('drop', e => {
+  if (!drag || drag.type !== 'tab') return;
+  e.preventDefault();
+  const row = e.target.closest('[data-drop-folder]');
+  const ids = drag.ids.slice();
+  const targetId = row ? row.dataset.dropFolder : currentFolder;
+  hideDropHint(); clearDrag();
+  addTabsAsBookmarks(ids, targetId);
+});
+paneMain.addEventListener('dragover', e => {
+  const hasFiles = e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+  if (drag && drag.type === 'tab'){
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    showDropHint(`松手存入「${curFolder().name}」 · ${drag.ids.length} 个标签`);
+  } else if (hasFiles && !(drag && drag.type === 'bm')){
+    e.preventDefault();
+    showDropHint('松手导入 JSON 书签文件');
+  }
+});
+paneMain.addEventListener('dragleave', e => {
+  if (!paneMain.contains(e.relatedTarget)) hideDropHint();
+});
+paneMain.addEventListener('drop', e => {
+  e.preventDefault();
+  hideDropHint();
+  if (drag && drag.type === 'tab'){
+    const ids = drag.ids.slice();
+    const targetId = currentFolder;
+    clearDrag();
+    addTabsAsBookmarks(ids, targetId);
+    return;
+  }
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file) readJsonFile(file);
+  clearDrag();
+});
+
+function addTabsAsBookmarks(ids, folderId){
+  const f = folderById(folderId); if (!f) return;
+  const added = [];
+  ids.forEach(id => {
+    const t = tabList.find(x => x.id === id); if (!t) return;
+    const b = { id: uid(), name: t.title, url: t.url };
+    f.marks.push(b); added.push(b);
+  });
+  if (!added.length) return;
+  currentFolder = folderId;
+  renderTree(); renderBmCrumb(); renderBmSub(); renderBmHead(); renderBmGrid(); renderStats();
+  requestAnimationFrame(() => added.forEach((b, i) => setTimeout(() => {
+    const el = bmGrid.querySelector(`[data-key="${b.id}"]`);
+    if (el){ el.classList.add('is-flash'); scrollInto(el); }
+  }, i * 45)));
+  toast(`已把 ${added.length} 个标签加入「${f.name}」`);
+}
+
+/* ============================================================================
+   14. JSON 导入
+   ============================================================================ */
+let impMode = 'file', impData = null, impFileName = '';
+function extractList(data){
+  const out = [];
+  const push = (name, url) => {
+    let u = String(url || '').trim();
+    if (!u) return;
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u;
+    try { new URL(u); } catch { return; }
+    out.push({ name: String(name || '').trim() || hostOf(u), url: u });
+  };
+  const walk = node => {
+    if (!node) return;
+    if (Array.isArray(node)){ node.forEach(walk); return; }
+    if (typeof node === 'string'){ push('', node); return; }
+    if (typeof node !== 'object') return;
+    if (node.url){ push(node.title || node.name, node.url); return; }
+    if (node.href){ push(node.title || node.name, node.href); return; }
+    if (node.children) node.children.forEach(walk);
+    if (node.roots) Object.values(node.roots).forEach(walk);
+    if (node.bookmarks) walk(node.bookmarks);
+    if (node.items) walk(node.items);
+    if (node.list) walk(node.list);
+  };
+  walk(data);
+  return out;
+}
+function openImport(){
+  impModal.hidden = false;
+  impTarget.textContent = curFolder().name;
+  impTip.textContent = '还没选择文件';
+  setTimeout(() => (impMode === 'file' ? dropzone : jsonText).focus?.(), 60);
+}
+function closeImport(){
+  impModal.hidden = true; impData = null; impFileName = '';
+  fileInput.value = ''; updateImpTip();
+}
+function updateImpTip(){
+  impTip.textContent = impMode === 'file'
+    ? (impFileName ? `已选择 ${impFileName} · ${impData ? extractList(impData).length : 0} 条` : '还没选择文件')
+    : 'Ctrl+Enter 直接导入';
+}
+function readJsonFile(file){
+  if (!file) return;
+  if (!/\.json$/i.test(file.name) && file.type !== 'application/json'){ toast('请选择 .json 文件', { tone: 'warn' }); return; }
+  const fr = new FileReader();
+  fr.onload = () => {
+    try {
+      impData = JSON.parse(fr.result);
+      impFileName = file.name;
+      const n = extractList(impData).length;
+      if (impModal.hidden) openImport();
+      updateImpTip();
+      toast(`已读取 ${file.name}，解析到 ${n} 个书签`);
+    } catch (err){ openImport(); toast('JSON 解析失败：' + err.message, { tone: 'warn' }); }
+  };
+  fr.readAsText(file, 'utf-8');
+}
+function doImport(){
+  let data;
+  if (impMode === 'file'){
+    if (impData == null){ toast('还没选择文件', { tone: 'warn' }); return; }
+    data = impData;
+  } else {
+    const txt = jsonText.value.trim();
+    if (!txt){ toast('请先粘贴 JSON 内容', { tone: 'warn' }); return; }
+    try { data = JSON.parse(txt); }
+    catch (err){ toast('JSON 解析失败：' + err.message, { tone: 'warn' }); return; }
+  }
+  const list = extractList(data);
+  if (!list.length){ toast('没有解析到有效的书签（需要 name / url 字段）', { tone: 'warn' }); return; }
+  const f = curFolder();
+  const added = list.map(o => ({ id: uid(), name: o.name, url: o.url }));
+  f.marks.push(...added);
+  selectedBms.clear();
+  closeImport();
+  renderTree(); renderBmCrumb(); renderBmSub(); renderBmHead(); renderBmGrid(); renderStats();
+  scrollBottom(bmGrid);
+  requestAnimationFrame(() => added.forEach((b, i) => setTimeout(() => {
+    const el = bmGrid.querySelector(`[data-key="${b.id}"]`);
+    if (el) el.classList.add('is-flash');
+  }, i * 40)));
+  toast(`已导入 ${added.length} 个书签到「${f.name}」`);
+}
+const SAMPLE = {
+  "name": "我的书签",
+  "bookmarks": [
+    { "name": "V2EX", "url": "https://www.v2ex.com" },
+    { "name": "Product Hunt", "url": "https://www.producthunt.com" },
+    { "name": "Smashing Magazine", "url": "https://www.smashingmagazine.com" },
+    { "name": "CSS-Tricks", "url": "https://css-tricks.com" }
+  ]
+};
+
+/* ============================================================================
+   15. 事件委托
+   ============================================================================ */
+document.addEventListener('mousedown', e => { mouseDownTarget = e.target; }, true);
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+
+  switch (act){
+    /* ---------- 快捷站点 ---------- */
+    case 'quick-open': {
+      const s = quickSites.find(x => x.id === el.dataset.id); if (!s) return;
+      window.open(s.url, '_blank', 'noopener');
+      toast(`已在新标签页打开「${s.name}」`);
+      return;
+    }
+    case 'quick-toggle': e.preventDefault(); quickForm.hidden ? openQuickForm(null) : closeQuickForm(); return;
+    case 'quick-edit': {
+      const s = quickSites.find(x => x.id === el.dataset.id); if (!s) return;
+      openQuickForm(s);
+      return;
+    }
+    case 'quick-del': {
+      const id = el.dataset.id;
+      const s = quickSites.find(x => x.id === id); if (!s) return;
+      quickSites = quickSites.filter(x => x.id !== id);
+      renderQuick();
+      toast(`已删除快捷站点「${s.name}」`, { action: '撤销', onAction: () => { quickSites.push(s); renderQuick(); } });
+      return;
+    }
+
+    /* ---------- 标签 ---------- */
+    case 'card-tab': {
+      const id = el.dataset.id;
+      // 只要已有勾选（多选模式），单击卡片 = 勾选/取消，不打开网站
+      if (selectedTabs.size > 0 || e.shiftKey || e.ctrlKey || e.metaKey){
+        toggleTabSel(id, e); afterTabSel(); return;
+      }
+      window.open(el.dataset.url, '_blank', 'noopener');
+      return;
+    }
+    case 'pick-tab': {
+      const id = el.dataset.id;
+      selectedTabs.has(id) ? selectedTabs.delete(id) : selectedTabs.add(id);
+      lastTabIdx = visibleTabs().findIndex(t => t.id === id);
+      afterTabSel();
+      return;
+    }
+    case 'close-tab': closeTabs([el.dataset.id]); return;
+    case 'all-tabs': visibleTabs().forEach(t => selectedTabs.add(t.id)); afterTabSel(); return;
+    case 'clear-tabs': selectedTabs.clear(); afterTabSel(); return;
+    case 'close-sel-tabs': {
+      const ids = selectedTabIdsInOrder();
+      if (!ids.length) return;
+      closeTabs(ids);
+      return;
+    }
+
+    /* ---------- 书签 ---------- */
+    case 'card-bm': {
+      const id = el.dataset.id;
+      // 只要已有勾选（多选模式），单击卡片 = 勾选/取消，不打开网站
+      if (selectedBms.size > 0 || e.shiftKey || e.ctrlKey || e.metaKey){
+        const list = visibleBms(), idx = list.findIndex(b => b.id === id);
+        if (e.shiftKey && lastBmIdx != null && lastBmIdx >= 0){
+          const a = Math.min(lastBmIdx, idx), b2 = Math.max(lastBmIdx, idx);
+          for (let i = a; i <= b2; i++) selectedBms.add(list[i].id);
+        } else {
+          selectedBms.has(id) ? selectedBms.delete(id) : selectedBms.add(id);
+        }
+        lastBmIdx = idx;
+        renderBmGrid(); renderBmHead(); renderStats();
+        return;
+      }
+      if (!el.dataset.url){ startEdit(id, 'name'); return; }
+      window.open(el.dataset.url, '_blank', 'noopener');
+      return;
+    }
+    case 'pick-bm': {
+      const id = el.dataset.id;
+      selectedBms.has(id) ? selectedBms.delete(id) : selectedBms.add(id);
+      lastBmIdx = visibleBms().findIndex(b => b.id === id);
+      renderBmGrid(); renderBmHead(); renderStats();
+      return;
+    }
+    case 'bm-edit': {
+      // 多选模式下，点名称/域名也走勾选，不进入编辑
+      if (selectedBms.size > 0){
+        const id = el.dataset.id;
+        selectedBms.has(id) ? selectedBms.delete(id) : selectedBms.add(id);
+        lastBmIdx = visibleBms().findIndex(b => b.id === id);
+        renderBmGrid(); renderBmHead(); renderStats();
+        return;
+      }
+      startEdit(el.dataset.id, el.dataset.field);
+      return;
+    }
+    case 'del-bm': deleteBms([el.dataset.id]); return;
+    case 'all-bms': visibleBms().forEach(b => selectedBms.add(b.id)); renderBmGrid(); renderBmHead(); renderStats(); return;
+    case 'clear-bms': selectedBms.clear(); renderBmGrid(); renderBmHead(); renderStats(); return;
+    case 'del-sel-bms': {
+      const ids = visibleBms().filter(b => selectedBms.has(b.id)).map(b => b.id);
+      if (ids.length) deleteBms(ids);
+      return;
+    }
+    case 'add-bm': addBookmark(); return;
+    case 'open-import': openImport(); return;
+    case 'close-modal': closeImport(); return;
+    case 'imp-ok': doImport(); return;
+    case 'imp-sample': {
+      impMode = 'paste'; syncImpMode();
+      jsonText.value = JSON.stringify(SAMPLE, null, 2);
+      jsonText.scrollTop = 0;
+      jsonText.focus();
+      jsonText.setSelectionRange(0, 0);
+      jsonText.scrollTop = 0;
+      return;
+    }
+
+    /* ---------- 文件夹 ---------- */
+    case 'caret': {
+      e.stopPropagation();
+      const id = el.dataset.id;
+      collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
+      renderTree();
+      return;
+    }
+    case 'goto': {
+      const id = el.dataset.folder;
+      if (!folderById(id)) return;
+      currentFolder = id;
+      selectedBms.clear();
+      let p = folderById(id).parent;
+      while (p){ collapsed.delete(p); p = folderById(p).parent; }
+      renderTree(); renderBmCrumb(); renderBmSub(); renderBmHead(); renderBmGrid();
+      return;
+    }
+  }
+});
+
+/* 导入弹窗 */
+function syncImpMode(){
+  $$('#impSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === impMode));
+  $('#impFilePane').hidden = impMode !== 'file';
+  $('#impPastePane').hidden = impMode !== 'paste';
+  updateImpTip();
+}
+$('#impSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  impMode = b.dataset.mode; syncImpMode();
+});
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('hot'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('hot'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); e.stopPropagation();
+  dropzone.classList.remove('hot');
+  readJsonFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => readJsonFile(fileInput.files[0]));
+impModal.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); doImport(); }
+});
+
+/* 快捷站点表单 */
+quickForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const name = qfName.value.trim();
+  const url = normalizeUrl(qfUrl.value);
+  if (!name){ toast('请填写名称', { tone: 'warn' }); qfName.focus(); return; }
+  if (!url){ toast('网址格式不正确', { tone: 'warn' }); qfUrl.focus(); return; }
+  if (editingQuick){
+    editingQuick.name = name; editingQuick.url = url;
+    toast(`已更新「${name}」`);
+  } else {
+    quickSites.push({ id: uid(), name, url });
+    toast(`已添加快捷站点「${name}」`);
+  }
+  closeQuickForm(); renderQuick();
+});
+$('#qfCancel').addEventListener('click', closeQuickForm);
+[qfName, qfUrl].forEach(inp => inp.addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ e.preventDefault(); closeQuickForm(); }
+}));
+
+/* ============================================================================
+   16. 搜索 / 分栏 / 时钟 / 帮助
+   ============================================================================ */
+let searchTimer = null;
+$('#search').addEventListener('input', e => {
+  query = e.target.value;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    renderQuick(); renderTabs(); renderTabHead(); renderBmGrid(); renderBmHead();
+  }, 90);
+});
+
+splitter.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  splitter.classList.add('on');
+  document.body.classList.add('resizing');
+  const move = ev => {
+    const r = mainEl.getBoundingClientRect();
+    const pct = Math.max(28, Math.min(64, ((ev.clientX - r.left) / r.width) * 100));
+    panelTabs.style.width = pct + '%';
+  };
+  const up = () => {
+    splitter.classList.remove('on');
+    document.body.classList.remove('resizing');
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+});
+
+$('#helpBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  helpBox.hidden = !helpBox.hidden;
+});
+document.addEventListener('click', e => {
+  if (!helpBox.hidden && !helpBox.contains(e.target) && !e.target.closest('#helpBtn')) helpBox.hidden = true;
+});
+
+function tick(){
+  const d = new Date();
+  const w = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+  $('#clockT').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  $('#clockD').textContent = `${d.getMonth() + 1}月${d.getDate()}日 ${w}`;
+}
+tick(); setInterval(tick, 10000);
+
+/* 键盘 */
+document.addEventListener('keydown', e => {
+  const inField = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  const key = e.key.toLowerCase();
+
+  if ((e.ctrlKey || e.metaKey) && key === 'z' && !inField){
+    e.preventDefault(); undoDelete(); return;
+  }
+  if (key === 'escape'){
+    if (!impModal.hidden){ closeImport(); return; }
+    if (!helpBox.hidden){ helpBox.hidden = true; return; }
+    if (!quickForm.hidden){ closeQuickForm(); return; }
+    if (editingField){ document.activeElement.blur?.(); return; }
+    if (selectedTabs.size || selectedBms.size){
+      selectedTabs.clear(); selectedBms.clear();
+      afterTabSel(); renderBmGrid(); renderBmHead();
+      return;
+    }
+    return;
+  }
+  if (inField) return;
+  if (key === '/'){ e.preventDefault(); $('#search').focus(); return; }
+  if ((key === 'delete' || key === 'backspace')){
+    if (selectedBms.size){
+      e.preventDefault();
+      const ids = visibleBms().filter(b => selectedBms.has(b.id)).map(b => b.id);
+      if (ids.length) deleteBms(ids);
+    }
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && key === 'a'){
+    if (document.activeElement === $('#search')) return;
+    e.preventDefault();
+    visibleTabs().forEach(t => selectedTabs.add(t.id));
+    visibleBms().forEach(b => selectedBms.add(b.id));
+    afterTabSel(); renderBmGrid(); renderBmHead();
+    return;
+  }
+});
+
+/* 初始化 */
+renderAll();
+setTimeout(() => toast('演示数据已就绪 · 点右上角 ? 查看全部快捷操作', { duration: 5200 }), 700);
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+*.local
+
+# 分发用安装包（由 npm run package 生成，不入库）
+release/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env
+.env
+.env.*
+!.env.example
+
+# WorkBuddy local session data
+.workbuddy/
+
+# 本地验证产物（无头截图 / 探针输出）
+.shots/
