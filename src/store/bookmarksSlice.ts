@@ -2,6 +2,7 @@ import { crushCards } from '@/lib/fx';
 import { truncate } from '@/lib/colors';
 import { uid } from '@/lib/id';
 import {
+  applySyncing,
   childrenOf,
   countOf,
   descendantIds,
@@ -578,30 +579,17 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
     async moveNodesInto(ids, parentId, index) {
       const target = get().bm.nodes[parentId];
       if (!target?.isFolder) return;
-      // 账号书签与此设备书签是两套独立存储，Chrome 不允许互相搬运
-      const isCrossStorage = (n: BmNode) =>
-        typeof n.syncing === 'boolean' &&
-        typeof target.syncing === 'boolean' &&
-        n.syncing !== target.syncing;
-
-      const blocked = ids.filter((id) => {
-        const n = get().bm.nodes[id];
-        return !!n && isCrossStorage(n);
-      });
-      if (blocked.length) {
-        get().toast('账号书签与此设备书签是两套存储，不能互相移动', { tone: 'warn' });
-      }
+      // 账号书签与此设备书签可以互相搬运：落点在哪套存储，搬过去的节点就归哪套存储
 
       const movable = ids.filter((id) => {
         if (id === parentId) return false;
         const n = get().bm.nodes[id];
         if (!n) return false;
         if (isDescendant(get().bm, id, parentId)) return false;
-        if (isCrossStorage(n)) return false;
         return true;
       });
       if (!movable.length) {
-        if (!blocked.length) get().toast('不能把文件夹移进它自己或它的子文件夹', { tone: 'warn' });
+        get().toast('不能把文件夹移进它自己或它的子文件夹', { tone: 'warn' });
         return;
       }
 
@@ -611,11 +599,14 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
           ? target.children.filter((x) => !movable.includes(x)).length
           : Math.max(0, Math.min(index, target.children.length));
 
+      const targetSyncing = target.syncing;
       const snapshot = JSON.parse(JSON.stringify(get().bm)) as BmState;
       set((s) => {
         let i = base;
         for (const id of movable) {
           moveInTree(s.bm, id, parentId, i);
+          // 跨存储搬运后同步归属（含子树），与实际落点保持一致
+          applySyncing(s.bm, id, targetSyncing);
           i += 1;
         }
         s.selectedBms = [];

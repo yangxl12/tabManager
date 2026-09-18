@@ -28,7 +28,7 @@ export function normalizeTree(raw: RawBmNode[]): BmState {
   const nodes: Record<string, BmNode> = {};
   const roots: string[] = [];
   const walk = (n: RawBmNode, parentId: string | null, inheritedSyncing?: boolean) => {
-    // syncing 只有顶层特殊文件夹才带，向下继承，方便判断「能不能移过去」
+    // syncing 只有顶层特殊文件夹才带，向下继承，标记整棵子树的存储归属
     const syncing = typeof n.syncing === 'boolean' ? n.syncing : inheritedSyncing;
     nodes[n.id] = {
       id: n.id,
@@ -253,6 +253,24 @@ export function moveInTree(
   if (isDescendant(state, id, parentId)) return false;
   detach(state, id);
   return attach(state, parentId, index, id);
+}
+
+/**
+ * 把整棵子树（含自身）的存储归属改成 syncing。
+ * 账号书签与此设备书签可以互相搬运——挂到哪个顶层文件夹下，就归哪套存储，
+ * 所以搬完必须重新标记，否则本地模型里的归属会和新位置不一致。
+ * syncing 为 undefined 表示这套数据本身不区分存储，此时清掉节点上的残留标记。
+ */
+export function applySyncing(
+  state: BmState,
+  id: string,
+  syncing: boolean | undefined,
+): void {
+  const n = state.nodes[id];
+  if (!n) return;
+  if (typeof syncing === 'boolean') n.syncing = syncing;
+  else delete n.syncing;
+  for (const cid of n.children) applySyncing(state, cid, syncing);
 }
 
 export function removeSubtree(state: BmState, id: string): void {

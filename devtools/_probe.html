@@ -872,6 +872,31 @@
               log(false, '拖书签排序：卡片不足');
             }
           }
+
+          /* ---------- 跨存储搬运（回归：账号书签与此设备书签曾禁止互移） ---------- */
+          {
+            const st = W.__tabnest.getState();
+            st.gotoFolder('3');
+            await sleep(400);
+            const src = bmCell('300');
+            const dst = $('[data-tree-row="2"]');
+            log(!!src && !!dst, '跨存储搬运前置：设备书签与账号文件夹都在', `src=${!!src} dst=${!!dst}`);
+            if (src && dst) {
+              nativeDrag(src, dst, 0.5);
+              await sleep(600);
+              const bm = W.__tabnest.getState().bm;
+              log(
+                bm.nodes['300'] && bm.nodes['300'].parentId === '2',
+                '设备书签拖进账号文件夹 → 允许并生效',
+                `parentId=${bm.nodes['300'] && bm.nodes['300'].parentId}`,
+              );
+              log(
+                bm.nodes['300'] && bm.nodes['300'].syncing === true,
+                '搬进账号存储后归属重新标记',
+                `syncing=${bm.nodes['300'] && bm.nodes['300'].syncing}`,
+              );
+            }
+          }
         } catch (err) {
           log(false, '脚本异常', err && err.message);
         }

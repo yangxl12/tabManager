@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   allFolderIds,
+  applySyncing,
   attach,
   childrenOf,
   countOf,
@@ -278,5 +279,28 @@ describe('账号书签 / 此设备书签 双存储', () => {
 
   it('树顶层不会把合成根当成文件夹展示', () => {
     expect(treeRootIds(dual())).toEqual(['1', '2', '3', '4']);
+  });
+
+  it('applySyncing 把整棵子树的归属改掉', () => {
+    const s = dual();
+    applySyncing(s, '3', true);
+    expect(storageOf(s, '3')).toBe(true);
+    expect(storageOf(s, '30')).toBe(true);
+    expect(storageOf(s, '10')).toBe(true);
+  });
+
+  it('applySyncing 传 undefined 时清掉残留归属', () => {
+    const s = dual();
+    applySyncing(s, '1', undefined);
+    expect(storageOf(s, '1')).toBeUndefined();
+    expect('syncing' in s.nodes['10']).toBe(false);
+  });
+
+  it('账号书签可以搬进此设备文件夹（不再被存储归属拦住）', () => {
+    const s = dual();
+    expect(moveInTree(s, '10', '3', 1)).toBe(true);
+    applySyncing(s, '10', storageOf(s, '3'));
+    expect(s.nodes['10'].parentId).toBe('3');
+    expect(storageOf(s, '10')).toBe(false);
   });
 });
