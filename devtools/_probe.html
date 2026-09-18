@@ -269,34 +269,88 @@
             '撤回后书签内容还原',
           );
 
-          /* ---------- 行内编辑 ---------- */
-          const nameEl = bmCardById('101').querySelector('.bm-card__name');
-          nameEl.click();
-          await sleep(100);
-          const input = bmCardById('101').querySelector('.bm-card__meta input:not(.soft)');
-          log(!!input, '点击名称进入行内编辑');
-          setInput(input, '掘金 · 改名测试');
-          input.blur();
-          await sleep(500);
+          /* ---------- 行内编辑（右下角编辑图标 → 名称 / 网址连改） ---------- */
+          const card101 = bmCardById('101');
+          const inp = (sel) => card101.querySelector(sel);
+          const selAll = (el) => !!el && el.selectionStart === 0 && el.selectionEnd === el.value.length;
+          const bmNode = (id) => W.__tabnest.getState().bm.nodes[id];
+          const txt = (sel) => {
+            const el = inp(sel);
+            return el ? el.textContent : '(missing)';
+          };
+          card101.querySelector('.bm-card__edit').click();
+          await sleep(150);
+          const nameInput = inp('input:not(.soft)');
           log(
-            bmCardById('101').querySelector('.bm-card__name').textContent === '掘金 · 改名测试',
+            !!nameInput && !!inp('input.soft'),
+            '点击编辑图标后名称与网址同时变输入框',
+          );
+          log(D.activeElement === nameInput, '焦点自动落在名称输入框上');
+          log(
+            selAll(nameInput),
+            '名称内容自动全选',
+            nameInput ? `sel=${nameInput.selectionStart}-${nameInput.selectionEnd} len=${nameInput.value.length}` : '',
+          );
+          setInput(nameInput, '掘金 · 改名测试');
+          nameInput.blur();
+          await sleep(250);
+          log(
+            bmNode('101').title === '掘金 · 改名测试',
             'blur 提交名称修改',
-            bmCardById('101').querySelector('.bm-card__name').textContent,
+            `store.title=${bmNode('101').title}`,
           );
-
-          const hostEl = bmCardById('101').querySelector('.bm-card__host');
-          log(hostEl.textContent === 'juejin.cn', '域名只显示 host', hostEl.textContent);
-          hostEl.click();
-          await sleep(100);
-          const urlInput = bmCardById('101').querySelector('.bm-card__meta input.soft');
-          log(!!urlInput, '点击域名进入行内编辑');
-          urlInput.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-          await sleep(300);
+          const urlFocus = inp('input.soft');
+          log(D.activeElement === urlFocus, '名称确认后光标自动跳到网址输入框');
           log(
-            bmCardById('101').querySelector('.bm-card__host').textContent === 'juejin.cn',
-            'Esc 取消编辑且不改动原值',
-            bmCardById('101').querySelector('.bm-card__host').textContent,
+            selAll(urlFocus),
+            '网址内容自动全选',
+            urlFocus ? `sel=${urlFocus.selectionStart}-${urlFocus.selectionEnd} len=${urlFocus.value.length}` : '',
           );
+          urlFocus.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          await sleep(300);
+          log(!inp('input'), 'Esc 退出编辑态');
+          log(txt('.bm-card__host') === 'juejin.cn', 'Esc 取消编辑且不改动原值', txt('.bm-card__host'));
+
+          /* 空值 blur：恢复原状，不把空串写进 store */
+          card101.querySelector('.bm-card__edit').click();
+          await sleep(150);
+          const emptyName = inp('input:not(.soft)');
+          setInput(emptyName, '');
+          emptyName.blur();
+          await sleep(200);
+          log(D.activeElement === inp('input.soft'), '名称为空 blur 后光标仍交给网址输入框');
+          const emptyUrl = inp('input.soft');
+          setInput(emptyUrl, '   ');
+          emptyUrl.blur();
+          await sleep(250);
+          log(!inp('input'), '网址为空 blur 后退出编辑态');
+          log(
+            txt('.bm-card__name') === '掘金 · 改名测试',
+            '名称空值 blur 恢复原状',
+            txt('.bm-card__name'),
+          );
+          log(txt('.bm-card__host') === 'juejin.cn', '网址空值 blur 恢复原状', txt('.bm-card__host'));
+
+          /* 编辑态点卡片空白处：先收工，这一击不能再顺手打开书签 */
+          {
+            const tabsBeforeEditClick = $$('[data-tab-card]').length;
+            card101.querySelector('.bm-card__edit').click();
+            await sleep(150);
+            inp('input:not(.soft)').blur(); // 名称确认 → 光标交给网址，此时网址框是最后一个字段
+            await sleep(200);
+            const urlBox = inp('input.soft');
+            card101.dispatchEvent(new W.MouseEvent('mousedown', { bubbles: true }));
+            if (urlBox) urlBox.blur();
+            await sleep(200);
+            card101.click();
+            await sleep(400);
+            log(!inp('input'), '点击卡片空白处结束编辑');
+            log(
+              $$('[data-tab-card]').length === tabsBeforeEditClick,
+              '结束编辑那一击不会误开书签',
+              `${tabsBeforeEditClick} → ${$$('[data-tab-card]').length}`,
+            );
+          }
 
           /* ---------- 全局书签搜索弹窗 ---------- */
           {
@@ -453,21 +507,23 @@
 
           /* ---------- 新建草稿 ---------- */
           headerBtn('新建').click();
-          await sleep(200);
+          await sleep(250);
           const draft = $('.bm-card.is-draft');
           log(!!draft, '新建后出现「未保存」草稿卡片');
-          const nameInput = $('.bm-card.is-draft .bm-card__meta input:not(.soft)');
-          log(!!nameInput, '新建后名称变为输入框');
-          log(D.activeElement === nameInput, '焦点落在名称输入框上');
-          setInput(nameInput, '测试站点');
-          nameInput.blur();
-          await sleep(200);
+          const draftName = $('.bm-card.is-draft input:not(.soft)');
+          log(!!draftName && !!$('.bm-card.is-draft input.soft'), '新建后名称与网址同时变输入框');
+          log(D.activeElement === draftName, '焦点落在名称输入框上');
+          setInput(draftName, '测试站点');
+          draftName.blur();
+          await sleep(250);
+          log(
+            D.activeElement === $('.bm-card.is-draft input.soft'),
+            '名称确认后光标自动落到网址输入框',
+          );
           log(!!$('.bm-card.is-draft'), '只有名称没有网址时仍是草稿');
-          $('.bm-card.is-draft .bm-card__host').click();
-          await sleep(120);
-          const urlInput2 = $('.bm-card.is-draft .bm-card__meta input.soft');
-          setInput(urlInput2, 'example.com');
-          urlInput2.blur();
+          const draftUrl = $('.bm-card.is-draft input.soft');
+          setInput(draftUrl, 'example.com');
+          draftUrl.blur();
           await sleep(500);
           log(!$('.bm-card.is-draft'), '补齐网址后草稿升级为真实书签');
           log(

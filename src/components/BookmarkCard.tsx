@@ -6,7 +6,7 @@ import { hostOf } from '@/lib/url';
 import type { BmNode } from '@/lib/types';
 import { InlineEdit } from './InlineEdit';
 import { Tile } from './Tile';
-import { IconX } from './icons';
+import { IconPencil, IconX } from './icons';
 import { useCardDrag, useSortableTarget } from '@/dnd/dnd';
 import type { FlashField } from '@/store/slice';
 
@@ -19,6 +19,8 @@ interface Props {
 export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }: Props) {
   const cellRef = useRef<HTMLElement>(null);
   const [field, setField] = useState<FlashField | null>(null);
+  /** 编辑态失焦即结束编辑，紧接着那一下 click 不该再触发「打开书签」 */
+  const swallowed = useRef(false);
 
   const selected = useStore((s) => s.selectedBms.includes(node.id));
   const closing = useStore((s) => s.closingBms.includes(node.id));
@@ -34,6 +36,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
 
   const seed = node.title || hostOf(node.url) || '?';
   const color = colorFor(seed);
+  const editing = field !== null;
 
   useEffect(() => {
     if (!autoEdit || autoEdit.id !== node.id) return;
@@ -41,9 +44,21 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
     useStore.getState().consumeAutoEdit();
   }, [autoEdit, node.id]);
 
+  const startEdit = (f: FlashField) => {
+    if (closing) return;
+    // 多选模式下点击卡片是勾选语义，不进编辑态
+    if (useStore.getState().selectedBms.length > 0) return;
+    setField(f);
+  };
+
+  const exitEdit = () => {
+    setField(null);
+    useStore.getState().finalizeShare(node.id);
+  };
+
   useCardDrag({
     elementRef: cellRef,
-    disabled: closing || field !== null,
+    disabled: closing || editing,
     getData: () => {
       const st = useStore.getState();
       const sel = st.selectedBms;
@@ -71,6 +86,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
     dragging ? 'dragging' : '',
     entering ? 'enter' : '',
     node.isDraft ? 'is-draft' : '',
+    editing ? 'is-editing' : '',
     indicator === 'before' ? 'drop-b' : '',
     indicator === 'after' ? 'drop-a' : '',
   ]
@@ -89,8 +105,15 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
       <div
         className={cls}
         style={entering ? { animationDelay: `${Math.min(index * 22, 320)}ms` } : undefined}
+        onMouseDown={() => {
+          if (editing) swallowed.current = true;
+        }}
         onClick={(e) => {
-          if (closing || field) return;
+          if (swallowed.current) {
+            swallowed.current = false;
+            return;
+          }
+          if (closing || editing) return;
           const st = useStore.getState();
           if (st.selectedBms.length > 0 || e.shiftKey || e.ctrlKey || e.metaKey) {
             st.toggleBmSel(node.id, e);
@@ -99,64 +122,89 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
           void st.openBookmark(node.id);
         }}
       >
-        <Tile url={node.url} seed={seed} />
-        <div className="bm-card__meta">
-          <InlineEdit
-            value={node.title}
-            placeholder="输入名称"
-            className="bm-card__name"
-            editing={field === 'name'}
-            emptyStyle
-            title="点击修改名称"
-            onStart={() => setField('name')}
-            onCancel={() => setField(null)}
-            onCommit={(v) => {
-              const st = useStore.getState();
-              st.commitEdit(node.id, 'name', v);
-              st.finalizeShare(node.id);
-              setField(null);
-            }}
-          />
-          <InlineEdit
-            value={node.url}
-            displayValue={hostOf(node.url)}
-            placeholder="输入域名"
-            className="bm-card__host"
-            inputClassName="soft"
-            editing={field === 'url'}
-            emptyStyle
-            title="点击修改域名"
-            onStart={() => setField('url')}
-            onCancel={() => setField(null)}
-            onCommit={(v) => {
-              const st = useStore.getState();
-              st.commitEdit(node.id, 'url', v);
-              st.finalizeShare(node.id);
-              setField(null);
-            }}
-          />
-          {!node.url && !field ? <span style={{ display: 'none' }} /> : null}
+        <div className="bm-card__top">
+          <Tile url={node.url} seed={seed} />
+          <div className="bm-card__head">
+            <InlineEdit
+              value={node.title}
+              placeholder="输入名称"
+              className="bm-card__name"
+              editing={editing}
+              active={field === 'name'}
+              revertOnEmpty
+              emptyStyle
+              title="点击修改名称"
+              onStart={() => startEdit('name')}
+              onCancel={exitEdit}
+              onRevert={() => setField('url')}
+              onCommit={(v) => {
+                useStore.getState().commitEdit(node.id, 'name', v);
+                // 名称确定后光标自动落到网址输入框
+                setField('url');
+              }}
+            />
+          </div>
         </div>
-        <div className="bm-card__ops">
+
+        <div className="bm-card__btm">
           <button
             className={`pick${selected ? ' is-on' : ''}`}
             title="选择"
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               useStore.getState().toggleBmSel(node.id, e);
             }}
           />
-          <button
-            className="xbtn"
-            title="删除（可 Ctrl+Z 撤回）"
-            onClick={(e) => {
-              e.stopPropagation();
-              void useStore.getState().deleteNodes([node.id]);
-            }}
-          >
-            <IconX size={11} />
-          </button>
+          <div className="bm-card__hostwrap">
+            <InlineEdit
+              value={node.url}
+              displayValue={hostOf(node.url)}
+              placeholder="输入网址"
+              className="bm-card__host"
+              inputClassName="soft"
+              editing={editing}
+              active={field === 'url'}
+              revertOnEmpty
+              emptyStyle
+              title="点击修改网址"
+              onStart={() => startEdit('url')}
+              onCancel={exitEdit}
+              onRevert={exitEdit}
+              onCommit={(v) => {
+                useStore.getState().commitEdit(node.id, 'url', v);
+                exitEdit();
+              }}
+            />
+          </div>
+          {editing ? (
+            <span className="bm-card__editspace" />
+          ) : (
+            <button
+              className="bm-card__edit"
+              title="编辑名称与网址"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                startEdit('name');
+              }}
+            >
+              <IconPencil size={12} />
+            </button>
+          )}
         </div>
+
+        <button
+          className="xbtn"
+          title="删除（可 Ctrl+Z 撤回）"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            void useStore.getState().deleteNodes([node.id]);
+          }}
+        >
+          <IconX size={11} />
+        </button>
       </div>
     </motion.article>
   );

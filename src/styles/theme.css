@@ -856,16 +856,18 @@ textarea {
   gap: 9px;
   padding: 2px 2px 8px;
 }
+/* 版式与左侧 .tab-card 对齐：上下两行，logo + 名称在上，勾选 + 网址 + 编辑在下 */
 .bm-card {
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 9px 10px 11px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 11px 10px;
   border-radius: 12px;
   background: var(--color-surface);
   cursor: pointer;
   user-select: none;
+  min-height: 88px;
   transition:
     background 0.16s var(--ease-nest),
     opacity 0.2s var(--ease-nest);
@@ -932,7 +934,23 @@ textarea {
     background: var(--color-surface);
   }
 }
-.bm-card__meta {
+.bm-card__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding-right: 24px;
+}
+.bm-card__head {
+  flex: 1;
+  min-width: 0;
+}
+.bm-card__btm {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+}
+.bm-card__hostwrap {
   flex: 1;
   min-width: 0;
 }
@@ -940,10 +958,12 @@ textarea {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--color-ink);
-  line-height: 1.35;
+  line-height: 1.42;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
   border-radius: 5px;
   transition: 0.15s var(--ease-nest);
   margin: 0 -3px 1px;
@@ -965,7 +985,14 @@ textarea {
   width: fit-content;
   max-width: 100%;
 }
-/* 只在文字本身下方提示「可点击改名/改域名」，不再整行铺灰底 */
+/* 编辑态 input 铺满所属栏位，不留负外边距（负边距在 flex 行里会溢出） */
+.bm-card__head .mini-input,
+.bm-card__hostwrap .mini-input {
+  width: 100%;
+  margin: 0;
+  padding: 1px 3px;
+}
+/* 只在文字本身下方提示「可点击改名/改网址」，不再整行铺灰底 */
 .bm-card__name:hover,
 .bm-card__host:hover {
   box-shadow: inset 0 -1px 0 #d9d3c8;
@@ -979,11 +1006,29 @@ textarea {
   content: '点击添加网址';
   color: #c6bfb3;
 }
-.bm-card__ops {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+/* 右下角编辑按钮：点击后名称 + 网址同时变输入框 */
+.bm-card__edit,
+.bm-card__editspace {
   flex: none;
+  width: 21px;
+  height: 21px;
+}
+.bm-card__edit {
+  display: grid;
+  place-items: center;
+  color: var(--color-faint);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: 0.16s var(--ease-nest);
+}
+.bm-card:hover .bm-card__edit,
+.bm-card.is-editing .bm-card__edit {
+  opacity: 1;
+}
+.bm-card__edit:hover {
+  background: var(--color-hover-2);
+  color: var(--color-jade);
 }
 .bm-card .pick {
   opacity: 0;
@@ -995,10 +1040,25 @@ textarea {
 .bm-grid.select-mode .bm-card .pick {
   opacity: 1;
 }
+.bm-card .xbtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0.4;
+}
+.bm-card:hover .xbtn,
+.bm-card .xbtn:hover {
+  opacity: 1;
+}
 .bm-grid.select-mode .bm-card__name:hover,
 .bm-grid.select-mode .bm-card__host:hover {
   background: none;
   box-shadow: none;
+}
+/* 多选模式下点卡片是勾选语义，编辑入口整体收起 */
+.bm-grid.select-mode .bm-card .bm-card__edit {
+  opacity: 0;
+  pointer-events: none;
 }
 /* 多选模式下未选中卡片：与基础 hover 同款，统一只换底色 */
 .tab-grid.select-mode .tab-card:not(.is-sel):hover {

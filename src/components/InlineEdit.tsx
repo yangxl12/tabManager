@@ -10,15 +10,22 @@ interface Props {
   /** 编辑态 input 的附加 class */
   inputClassName?: string;
   editing: boolean;
+  /** 该字段当前是否持有光标（进入编辑态 / 链式焦点转移时抢焦点并全选） */
+  active?: boolean;
+  /** 空值 blur 时恢复原状，不提交 */
+  revertOnEmpty?: boolean;
   /** 空值时显示 CSS 占位（data-empty） */
   emptyStyle?: boolean;
   title?: string;
   onStart: () => void;
   onCommit: (value: string) => void;
+  /** Esc 取消（返回 false 由调用方决定是否退出编辑态） */
   onCancel?: () => void;
+  /** 空值 blur 触发的「恢复原状」回调，用于把焦点交给下一个字段 */
+  onRevert?: () => void;
 }
 
-/** 行内编辑：点击文字原位换 input，blur / Enter 提交，Esc 取消 */
+/** 行内编辑：文字原位换 input，blur / Enter 提交，Esc 取消 */
 export function InlineEdit({
   value,
   displayValue,
@@ -26,18 +33,21 @@ export function InlineEdit({
   className,
   inputClassName,
   editing,
+  active = true,
+  revertOnEmpty,
   emptyStyle,
   title,
   onStart,
   onCommit,
   onCancel,
+  onRevert,
 }: Props) {
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
-    if (!editing) return;
+    if (!editing || !active) return;
     setDraft(value);
     cancelledRef.current = false;
     const el = inputRef.current;
@@ -45,9 +55,19 @@ export function InlineEdit({
       el.focus();
       el.select();
     }
-    // 只在进入编辑态时同步一次初值
+    // 只在进入编辑态 / 焦点落到本字段时同步初值
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing]);
+  }, [editing, active]);
+
+  const commit = () => {
+    // 空值 → 恢复原状：不提交，input 里残留的空串也同步回外部值
+    if (revertOnEmpty && !draft.trim()) {
+      setDraft(value);
+      onRevert?.();
+      return;
+    }
+    onCommit(draft);
+  };
 
   if (!editing) {
     return (
@@ -97,7 +117,7 @@ export function InlineEdit({
           onCancel?.();
           return;
         }
-        onCommit(draft);
+        commit();
       }}
     />
   );
