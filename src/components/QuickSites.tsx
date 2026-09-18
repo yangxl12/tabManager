@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { QUICK_LIMIT, useStore } from '@/store';
+import { QUICK_LIMIT, useStore, useT } from '@/store';
 import { colorFor, firstChar } from '@/lib/colors';
 import { hostOf, normalizeUrl } from '@/lib/url';
 import { IconPencil, IconTrash } from './icons';
@@ -16,6 +16,7 @@ interface FormState {
 const CLOSED: FormState = { open: false, editingId: null, name: '', url: '' };
 
 export function QuickSites() {
+  const t = useT();
   const sites = useStore((s) => s.quickSites);
   const addQuick = useStore((s) => s.addQuick);
   const updateQuick = useStore((s) => s.updateQuick);
@@ -33,7 +34,7 @@ export function QuickSites() {
 
   const openAdd = () => {
     if (full) {
-      toast(`快捷站点最多 ${QUICK_LIMIT} 个，先删掉一些再添加`, { tone: 'warn' });
+      toast(t('quick.limit', { n: QUICK_LIMIT }), { tone: 'warn' });
       return;
     }
     setForm({ open: true, editingId: null, name: '', url: '' });
@@ -45,12 +46,12 @@ export function QuickSites() {
 
   const submit = () => {
     if (!form.name.trim() || !form.url.trim()) {
-      toast('名称和网址都要填', { tone: 'warn' });
+      toast(t('quick.needBoth'), { tone: 'warn' });
       return;
     }
     const url = normalizeUrl(form.url);
     if (!url) {
-      toast('网址格式不对，例如 zhihu.com', { tone: 'warn' });
+      toast(t('quick.badUrl'), { tone: 'warn' });
       return;
     }
     if (form.editingId) updateQuick(form.editingId, form.name, url);
@@ -79,22 +80,22 @@ export function QuickSites() {
               <span className="quick-tile__nm">{s.name}</span>
               <RowMenu
                 marker={s.id}
-                title={`${s.name} · 更多操作`}
+                title={t('tree.rowMore', { t: s.name })}
                 items={[
                   {
                     key: 'edit',
-                    label: '编辑',
+                    label: t('common.edit'),
                     icon: <IconPencil size={13} />,
                     onPick: () => openEdit(s.id, s.name, s.url),
                   },
                   {
                     key: 'remove',
-                    label: '删除',
+                    label: t('common.delete'),
                     icon: <IconTrash size={13} />,
                     danger: true,
                     onPick: () => {
                       removeQuick(s.id);
-                      toast(`已删除快捷站点「${s.name}」`);
+                      toast(t('quick.deleted', { t: s.name }));
                     },
                   },
                 ]}
@@ -105,12 +106,12 @@ export function QuickSites() {
 
         <div
           className="quick-tile quick-tile--add"
-          title={full ? `已达上限 ${QUICK_LIMIT} 个` : '新增快捷站点'}
+          title={full ? t('quick.limitTitle', { n: QUICK_LIMIT }) : t('quick.addTitle')}
           style={full ? { opacity: 0.45 } : undefined}
           onClick={openAdd}
         >
           <span className="quick-tile__ic">+</span>
-          <span className="quick-tile__nm">新增</span>
+          <span className="quick-tile__nm">{t('quick.add')}</span>
         </div>
       </div>
 
@@ -131,7 +132,7 @@ export function QuickSites() {
             <input
               ref={nameRef}
               className="fld"
-              placeholder="名称，如：知乎"
+              placeholder={t('quick.namePh')}
               maxLength={24}
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -141,7 +142,7 @@ export function QuickSites() {
             />
             <input
               className="fld"
-              placeholder="网址，如：zhihu.com"
+              placeholder={t('quick.urlPh')}
               spellCheck={false}
               value={form.url}
               onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
@@ -151,10 +152,10 @@ export function QuickSites() {
             />
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="btn btn--dark btn--sm" type="submit">
-                {form.editingId ? '保存' : '添加'}
+                {form.editingId ? t('quick.save') : t('quick.addBtn')}
               </button>
               <button className="btn btn--sm" type="button" onClick={() => setForm(CLOSED)}>
-                取消
+                {t('common.cancel')}
               </button>
             </div>
           </motion.form>

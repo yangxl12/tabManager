@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { THEME_LABEL, THEME_MODES, normalizeTheme, resolveTheme } from '@/lib/theme';
+import { THEME_MODES, normalizeTheme, resolveTheme } from '@/lib/theme';
+import { t, type I18nKey } from '@/lib/i18n';
 
 describe('resolveTheme', () => {
   it('显式模式不受系统偏好影响', () => {
@@ -26,8 +27,8 @@ describe('normalizeTheme', () => {
     for (const m of THEME_MODES) expect(normalizeTheme(m)).toBe(m);
   });
 
-  it('三种模式都有中文文案，顺序为 明亮 / 暗黑 / 跟随系统', () => {
+  it('三种模式都有双语文案，顺序为 明亮 / 暗黑 / 跟随系统', () => {
     expect(THEME_MODES).toEqual(['light', 'dark', 'system']);
-    expect(THEME_MODES.map((m) => THEME_LABEL[m])).toEqual(['明亮', '暗黑', '跟随系统']);
+    expect(THEME_MODES.map((m) => t(`theme.${m}` as I18nKey))).toEqual(['明亮', '暗黑', '跟随系统']);
   });
 });

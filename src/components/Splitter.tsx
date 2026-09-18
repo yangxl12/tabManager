@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useStore } from '@/store';
+import { useStore, useT } from '@/store';
 
 export function Splitter() {
+  const t = useT();
   const setPanelWidth = useStore((s) => s.setPanelWidth);
   const [on, setOn] = useState(false);
   const dragging = useRef(false);
@@ -36,5 +37,5 @@ export function Splitter() {
     };
   }, [setPanelWidth]);
 
-  return <div className={`splitter${on ? ' on' : ''}`} onMouseDown={onMouseDown} title="拖动调整宽度" />;
+  return <div className={`splitter${on ? ' on' : ''}`} onMouseDown={onMouseDown} title={t('split.title')} />;
 }

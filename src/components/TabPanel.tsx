@@ -1,10 +1,11 @@
 import { useRef } from 'react';
-import { useStore } from '@/store';
+import { useStore, useT } from '@/store';
 import { EmptyTabsArt, IconHelp, IconX } from './icons';
 import { TabCard } from './TabCard';
 import { useAutoScroll, usePaneTarget } from '@/dnd/dnd';
 
 export function TabPanel() {
+  const t = useT();
   const tabs = useStore((s) => s.tabs);
   const selected = useStore((s) => s.selectedTabs);
   const selectAllTabs = useStore((s) => s.selectAllTabs);
@@ -26,43 +27,43 @@ export function TabPanel() {
   return (
     <div className="pane-tabs">
       <div className="sec-head">
-        <div className="sec-title">已打开的标签</div>
+        <div className="sec-title">{t('tabs.title')}</div>
         {selCount > 0 ? (
           <>
             <span
               className="count-pill"
               style={{ color: 'var(--color-danger)', background: 'var(--color-danger-soft)' }}
             >
-              已选 {selCount}
+              {t('tabs.selected', { n: selCount })}
             </span>
-            <div className="sec-hint">多选模式 · 单击卡片即勾选，不再打开网站</div>
+            <div className="sec-hint">{t('tabs.multiHint')}</div>
             <div className="sec-ops">
               <button className="btn btn--sm btn--ghost" onClick={clearTabSel}>
-                取消选择
+                {t('tabs.clearSel')}
               </button>
               <button
                 className="btn btn--sm btn--danger"
                 onClick={() => void closeTabsByIds(selected)}
               >
-                <IconX size={10} /> 关闭选中
+                <IconX size={10} /> {t('tabs.closeSel')}
               </button>
             </div>
           </>
         ) : (
           <>
             <span className="count-pill">{list.length}</span>
-            <div className="sec-hint">拖拽排序 · 拖到右侧存为书签</div>
+            <div className="sec-hint">{t('tabs.hint')}</div>
             <div className="sec-ops">
               <button
                 className="btn btn--sm"
                 disabled={!list.length}
-                onClick={() => selectAllTabs(list.map((t) => t.id))}
+                onClick={() => selectAllTabs(list.map((tab) => tab.id))}
               >
-                全选
+                {t('common.selectAll')}
               </button>
               <button
                 className="ico-btn help-btn"
-                title="快捷键与操作（Esc 关闭）"
+                title={t('tabs.helpTitle')}
                 onClick={toggleHelp}
               >
                 <IconHelp size={15} />
@@ -83,8 +84,8 @@ export function TabPanel() {
             <div className="empty__ic">
               <EmptyTabsArt />
             </div>
-            <div className="empty__t">没有正在打开的标签</div>
-            <div className="empty__s">打开新的网页后，这里会自动出现卡片</div>
+            <div className="empty__t">{t('tabs.emptyT')}</div>
+            <div className="empty__s">{t('tabs.emptyS')}</div>
           </div>
         )}
       </div>

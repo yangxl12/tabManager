@@ -47,6 +47,8 @@ export const KEYS = {
   helpOpen: 'tabnest.helpOpen',
   /** 主题模式；与 localStorage 镜像同一 key，见 lib/theme.ts */
   theme: 'tabnest.theme',
+  /** 界面语言（zh / en）；与 localStorage 镜像同一 key，见 lib/i18n.ts */
+  lang: 'tabnest.lang',
 } as const;
 
 export function subscribeLocal(

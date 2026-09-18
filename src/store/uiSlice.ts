@@ -1,6 +1,7 @@
 import { uid } from '@/lib/id';
 import { KEYS, getLocal, setLocal } from '@/services/storage';
 import { normalizeTheme, readMirrorTheme, type ThemeMode } from '@/lib/theme';
+import { normalizeLang, readMirrorLang, setLangMirror, type Lang } from '@/lib/i18n';
 import { asBool, asNumber } from '@/lib/validate';
 import type { ToastItem, ToastTone } from '@/lib/types';
 import type { SliceCreator } from './slice';
@@ -35,13 +36,17 @@ export interface UiSlice {
   searchOpen: boolean;
   /** 主题模式；真正落到 <html> 由 App 统一处理 */
   theme: ThemeMode;
+  /** 界面语言（zh / en）；t() 读 lib/i18n 的模块级镜像，这里管真源与订阅 */
+  lang: Lang;
   panelWidth: number;
   toasts: ToastItem[];
   drag: DragState;
   setSearchOpen: (v: boolean) => void;
   toggleHelp: () => void;
   setHelpOpen: (v: boolean) => void;
-  setTheme: (m: ThemeMode) => void;
+    setTheme: (m: ThemeMode) => void;
+  setLang: (l: Lang) => void;
+  toggleLang: () => void;
   setPanelWidth: (w: number) => void;
   setDrag: (patch: Partial<DragState>) => void;
   resetDrag: () => void;
@@ -67,6 +72,8 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   // 初值直接取 localStorage 镜像：与首屏 boot-theme.js 算出的一致，
   // 否则 React 会先用「跟随系统」把暗色抹掉一帧（chrome.storage 是异步的，来不及）
   theme: readMirrorTheme(),
+  // 同 theme：镜像同步可读，首帧就是用户上次选的语言
+  lang: readMirrorLang(),
   panelWidth: DEFAULT_PANEL_WIDTH,
   toasts: [],
   drag: EMPTY_DRAG,
@@ -94,6 +101,16 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
       s.theme = m;
       void setLocal(KEYS.theme, m);
     }),
+
+  setLang: (l) =>
+    set((s) => {
+      s.lang = l;
+      // 同步 lib/i18n 模块级变量 + localStorage 镜像（slice / dnd 里的 t() 读这边）
+      setLangMirror(l);
+      void setLocal(KEYS.lang, l);
+    }),
+
+  toggleLang: () => get().setLang(get().lang === 'zh' ? 'en' : 'zh'),
 
   setPanelWidth: (w) =>
     set((s) => {
@@ -126,16 +143,20 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
 
   initUi: async () => {
     // 存储里的值不可信，逐项过一遍类型兜底（见 lib/validate.ts）
-    const [storedWidth, storedHelp, theme] = await Promise.all([
+    const [storedWidth, storedHelp, theme, lang] = await Promise.all([
       getLocal<unknown>(KEYS.panelWidth, DEFAULT_PANEL_WIDTH),
       getLocal<unknown>(KEYS.helpOpen, false),
       getLocal<unknown>(KEYS.theme, readMirrorTheme()),
+      getLocal<unknown>(KEYS.lang, readMirrorLang()),
     ]);
+    const nextLang = normalizeLang(lang);
     set((s) => {
       s.panelWidth = Math.max(30, Math.min(70, asNumber(storedWidth, DEFAULT_PANEL_WIDTH)));
       s.helpOpen = asBool(storedHelp, false);
       s.theme = normalizeTheme(theme);
+      s.lang = nextLang;
     });
+    setLangMirror(nextLang);
     void get();
   },
 });

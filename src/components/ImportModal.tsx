@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { useStore } from '@/store';
+import { useStore, useT } from '@/store';
 import { ImportParseError, SAMPLE_JSON, parseImportText } from '@/lib/importParse';
 import type { ImportItem } from '@/lib/types';
 import { IconX } from './icons';
@@ -16,6 +16,7 @@ interface Props {
 type Mode = 'text' | 'file';
 
 function ImportModalInner({ prefillText, onClose }: Omit<Props, 'open' | 'token'>) {
+  const t = useT();
   const folderTitle = useStore((s) => s.bm.nodes[s.currentFolder]?.title ?? '');
   const importItems = useStore((s) => s.importItems);
   const toast = useStore((s) => s.toast);
@@ -52,7 +53,7 @@ function ImportModalInner({ prefillText, onClose }: Omit<Props, 'open' | 'token'
 
   const readFile = (file: File) => {
     if (!/\.json$/i.test(file.name) && file.type !== 'application/json') {
-      toast('请选择 .json 文件', { tone: 'warn' });
+      toast(t('imp.pickJson'), { tone: 'warn' });
       return;
     }
     const fr = new FileReader();
@@ -65,21 +66,23 @@ function ImportModalInner({ prefillText, onClose }: Omit<Props, 'open' | 'token'
 
   const doImport = async () => {
     if (!parsed?.items.length) {
-      toast('没有解析到有效的书签', { tone: 'warn' });
+      toast(t('imp.noItems'), { tone: 'warn' });
       return;
     }
     const n = await importItems(parsed.items);
     if (!n) {
-      toast('导入失败，请检查 JSON 内容', { tone: 'warn' });
+      toast(t('imp.fail'), { tone: 'warn' });
       return;
     }
     onClose();
-    toast(`已导入 ${n} 个书签到「${folderTitle || '当前文件夹'}」`);
+    toast(t('imp.done', { n, f: folderTitle || t('imp.currentFolder') }));
   };
 
   const tip = parsed
-    ? `${parsed.items.length} 条可导入${parsed.skipped ? `，${parsed.skipped} 条无效跳过` : ''}`
-    : error || (fileName ? `已选择 ${fileName}` : '粘贴 JSON 或拖入 .json 文件');
+    ? `${t('imp.tipCount', { n: parsed.items.length })}${
+        parsed.skipped ? t('imp.tipSkip', { n: parsed.skipped }) : ''
+      }`
+    : error || (fileName ? t('imp.chosen', { f: fileName }) : t('imp.tipIdle'));
 
   return (
     <>
@@ -92,24 +95,24 @@ function ImportModalInner({ prefillText, onClose }: Omit<Props, 'open' | 'token'
       >
         <div className="modal__h">
           <div>
-            <h3>批量导入书签</h3>
+            <h3>{t('imp.title')}</h3>
             <p>
-              支持 <span className="code">{'[{ name, url }]'}</span>、
-              <span className="code">{'{ list: [...] }'}</span> 以及 Chrome 书签管理器导出的完整 JSON
-              树。导入目标：<b>{folderTitle || '—'}</b>
+              {t('imp.descA')}<span className="code">{'[{ name, url }]'}</span>、
+              <span className="code">{'{ list: [...] }'}</span>
+              {t('imp.descB')}<b>{folderTitle || '—'}</b>
             </p>
           </div>
-          <button className="ico-btn" onClick={onClose} title="关闭 (Esc)">
+          <button className="ico-btn" onClick={onClose} title={t('common.close')}>
             <IconX size={12} />
           </button>
         </div>
 
         <div className="seg">
           <button className={mode === 'text' ? 'on' : ''} onClick={() => setMode('text')}>
-            粘贴 JSON
+            {t('imp.paste')}
           </button>
           <button className={mode === 'file' ? 'on' : ''} onClick={() => setMode('file')}>
-            拖入文件
+            {t('imp.file')}
           </button>
         </div>
 
@@ -151,15 +154,15 @@ function ImportModalInner({ prefillText, onClose }: Omit<Props, 'open' | 'token'
             />
             {fileName ? (
               <>
-                已选择 <b>{fileName}</b>
+                {t('imp.chosen', { f: fileName })}
                 <br />
-                重新拖入或点击可更换文件
+                {t('imp.rechoose')}
               </>
             ) : (
               <>
-                把 <b>.json</b> 文件拖到这里
+                {t('imp.dropA')}<b>.json</b>{t('imp.dropB')}
                 <br />
-                或点击选择文件
+                {t('imp.dropOr')}
               </>
             )}
           </label>
@@ -176,17 +179,17 @@ function ImportModalInner({ prefillText, onClose }: Omit<Props, 'open' | 'token'
               applyText(SAMPLE_JSON);
             }}
           >
-            填入示例
+            {t('imp.sample')}
           </button>
           <button className="btn btn--sm" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             className="btn btn--sm btn--dark"
             disabled={!parsed?.items.length}
             onClick={() => void doImport()}
           >
-            导入
+            {t('imp.import')}
           </button>
         </div>
       </motion.div>

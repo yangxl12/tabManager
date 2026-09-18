@@ -1,4 +1,5 @@
 import { uid } from '@/lib/id';
+import { t } from '@/lib/i18n';
 import { KEYS, getLocalArray, setLocal } from '@/services/storage';
 import type { QuickSite } from '@/lib/types';
 import type { SliceCreator } from './slice';
@@ -33,7 +34,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
   addQuick(name, url) {
     if (!name.trim() || !url.trim()) return;
     if (get().quickSites.length >= QUICK_LIMIT) {
-      get().toast(`快捷站点最多 ${QUICK_LIMIT} 个，先删掉一些再添加`, { tone: 'warn' });
+      get().toast(t('quick.limit', { n: QUICK_LIMIT }), { tone: 'warn' });
       return;
     }
     set((s) => {

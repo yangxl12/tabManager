@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useStore } from '@/store';
+import { useStore, useT } from '@/store';
 import { searchBookmarks } from '@/lib/bookmarkSearch';
 import { hostOf } from '@/lib/url';
 import { IconFolder, IconSearch, IconX } from './icons';
@@ -21,6 +21,7 @@ function Highlight({ text, q }: { text: string; q: string }) {
 }
 
 function SearchInner({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const bm = useStore((s) => s.bm);
   const openBookmark = useStore((s) => s.openBookmark);
   const gotoFolder = useStore((s) => s.gotoFolder);
@@ -65,7 +66,7 @@ function SearchInner({ onClose }: { onClose: () => void }) {
         transition={{ duration: 0.16, ease: [0.22, 0.8, 0.28, 1] }}
       >
         {/* 弹窗自身的关闭按钮：浮在右上角，不跟输入框里的「清空」混在一起 */}
-        <button className="bmsearch__close" title="关闭 (Esc)" onClick={onClose}>
+        <button className="bmsearch__close" title={t('common.close')} onClick={onClose}>
           <IconX size={13} />
         </button>
 
@@ -77,7 +78,7 @@ function SearchInner({ onClose }: { onClose: () => void }) {
             type="text"
             autoComplete="off"
             spellCheck={false}
-            placeholder="搜索全部书签：名称、域名、所在文件夹…"
+            placeholder={t('search.ph')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
@@ -105,7 +106,7 @@ function SearchInner({ onClose }: { onClose: () => void }) {
           {q ? (
             <button
               className="ico-btn bmsearch__clear"
-              title="清空输入"
+              title={t('search.clear')}
               onClick={() => {
                 setQ('');
                 setActive(0);
@@ -120,7 +121,7 @@ function SearchInner({ onClose }: { onClose: () => void }) {
         <div className="bmsearch__list scroll" ref={listRef}>
           {!q.trim() ? (
             <div className="bmsearch__hint">
-              输入关键词开始搜索，共 <b>{total}</b> 个书签（含账号与此设备）
+              {t('search.hintIdle', { n: total })}
             </div>
           ) : hits.length ? (
             hits.map((hit, i) => (
@@ -139,10 +140,10 @@ function SearchInner({ onClose }: { onClose: () => void }) {
                 )}
                 <span className="bmsearch__main">
                   <span className="bmsearch__name">
-                    <Highlight text={hit.node.title || '(未命名)'} q={q} />
+                    <Highlight text={hit.node.title || t('search.untitled')} q={q} />
                   </span>
                   <span className="bmsearch__meta">
-                    {hit.node.isFolder ? '文件夹' : hostOf(hit.node.url)}
+                    {hit.node.isFolder ? t('search.folder') : hostOf(hit.node.url)}
                     {hit.path.length ? ` · ${hit.path.map((p) => p.title).join(' / ')}` : ''}
                   </span>
                 </span>
@@ -150,14 +151,14 @@ function SearchInner({ onClose }: { onClose: () => void }) {
             ))
           ) : (
             <div className="bmsearch__hint">
-              没找到匹配「<b>{q.trim()}</b>」的书签
+              {t('search.noHitA')}<b>{q.trim()}</b>{t('search.noHitB')}
             </div>
           )}
         </div>
 
         <div className="bmsearch__foot">
-          <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
-          <span>{q.trim() ? `${hits.length} 个结果` : `${total} 个书签`}</span>
+          <span>{t('search.keys')}</span>
+          <span>{q.trim() ? t('search.results', { n: hits.length }) : t('search.count', { n: total })}</span>
         </div>
       </motion.div>
     </>

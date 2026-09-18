@@ -2,6 +2,7 @@ import { crushCards } from '@/lib/fx';
 import { truncate } from '@/lib/colors';
 import { movePlan } from '@/lib/bookmarkTree';
 import { hostOf, isInternalUrl } from '@/lib/url';
+import { t } from '@/lib/i18n';
 import * as Tabs from '@/services/chromeTabs';
 import { hasChromeApi } from '@/services/storage';
 import type { TabItem } from '@/lib/types';
@@ -236,14 +237,16 @@ export const createTabsSlice: SliceCreator<TabsSlice> = (set, get) => {
               s.selectedTabs = s.selectedTabs.filter((id) => !valid.includes(id));
             });
             get().toast(
-              count === 1 ? `已关闭标签「${singleTitle}」` : `已关闭 ${count} 个标签`,
+              count === 1
+                ? t('toast.closedOne', { t: singleTitle })
+                : t('toast.closedMany', { n: count }),
             );
           })
           .catch((err: Error) => {
             set((s) => {
               s.closingTabs = s.closingTabs.filter((id) => !valid.includes(id));
             });
-            get().toast(`关闭失败：${err.message}`, { tone: 'warn' });
+            get().toast(t('toast.closeFail', { msg: err.message }), { tone: 'warn' });
           });
       }, wait || 10);
     },
@@ -251,13 +254,13 @@ export const createTabsSlice: SliceCreator<TabsSlice> = (set, get) => {
     async openTab(url) {
       if (!url) return;
       if (isInternalUrl(url)) {
-        get().toast('浏览器内部页面无法通过插件打开', { tone: 'warn' });
+        get().toast(t('toast.internalPage'), { tone: 'warn' });
         return;
       }
       try {
         await Tabs.createTab(url, true);
       } catch (err) {
-        get().toast(`打开失败：${(err as Error).message}`, { tone: 'warn' });
+        get().toast(t('toast.openFail', { msg: (err as Error).message }), { tone: 'warn' });
       }
     },
 
@@ -289,7 +292,7 @@ export const createTabsSlice: SliceCreator<TabsSlice> = (set, get) => {
         const steps = await moveStepsOnChrome(get().selfTabId, desiredIds, plan);
         for (const step of steps) await Tabs.moveTab(step.id, step.index);
       } catch (err) {
-        get().toast(`排序失败，已回滚：${(err as Error).message}`, { tone: 'warn' });
+        get().toast(t('toast.reorderFail', { msg: (err as Error).message }), { tone: 'warn' });
         await get().syncTabs();
       }
     },

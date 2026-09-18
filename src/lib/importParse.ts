@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import { hostOf, normalizeUrl } from './url';
+import { t } from './i18n';
 import type { ImportItem } from './types';
 
 export class ImportParseError extends Error {}
@@ -78,13 +79,13 @@ function walk(node: unknown, bucket: Bucket): void {
 /** 解析 JSON 文本，返回可导入条目 */
 export function parseImportText(text: string): ImportResult {
   const trimmed = String(text || '').trim();
-  if (!trimmed) throw new ImportParseError('内容为空，先粘贴 JSON');
+  if (!trimmed) throw new ImportParseError(t('imp.empty'));
 
   let data: unknown;
   try {
     data = JSON.parse(trimmed);
   } catch (err) {
-    throw new ImportParseError(`JSON 解析失败：${(err as Error).message}`);
+    throw new ImportParseError(t('imp.badJson', { msg: (err as Error).message }));
   }
   return collectItems(data);
 }
@@ -94,7 +95,7 @@ export function collectItems(data: unknown): ImportResult {
   const bucket: Bucket = { items: [], skipped: 0, seen: new Set() };
   walk(data, bucket);
   if (!bucket.items.length) {
-    throw new ImportParseError('没有解析到有效的书签（需要 name / url 字段）');
+    throw new ImportParseError(t('imp.noValid'));
   }
   return { items: bucket.items, skipped: bucket.skipped };
 }

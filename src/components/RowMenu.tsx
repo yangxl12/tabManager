@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { useT } from '@/store';
 import { IconCheck, IconDots } from './icons';
 
 export interface RowMenuItem {
@@ -35,7 +36,8 @@ const EDGE = 8;
  * 就地渲染会被裁掉；portal + position:fixed 才能稳定浮在最上层。
  * 触发按钮的图标 / 类名可替换，主题选择（ThemeMenu）复用同一套弹层逻辑。
  */
-export function RowMenu({ items, title = '更多操作', marker, trigger, btnClass }: Props) {
+export function RowMenu({ items, title, marker, trigger, btnClass }: Props) {
+  const t = useT();
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -84,13 +86,15 @@ export function RowMenu({ items, title = '更多操作', marker, trigger, btnCla
     };
   }, [open]);
 
+  const resolvedTitle = title ?? t('common.more');
+
   return (
     <>
       <button
         ref={btnRef}
         className={`row-menu__btn${open ? ' is-open' : ''}${btnClass ? ` ${btnClass}` : ''}`}
-        title={title}
-        aria-label={title}
+        title={resolvedTitle}
+        aria-label={resolvedTitle}
         aria-haspopup="menu"
         aria-expanded={open}
         data-row-menu={marker}

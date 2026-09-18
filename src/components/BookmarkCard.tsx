@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { useStore } from '@/store';
+import { useStore, useT } from '@/store';
 import { colorFor } from '@/lib/colors';
 import { hostOf } from '@/lib/url';
 import type { BmNode } from '@/lib/types';
@@ -17,6 +17,7 @@ interface Props {
 }
 
 export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }: Props) {
+  const t = useT();
   const cellRef = useRef<HTMLElement>(null);
   const [field, setField] = useState<FlashField | null>(null);
   /** 编辑态失焦即结束编辑，紧接着那一下 click 不该再触发「打开书签」 */
@@ -127,7 +128,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
           <div className="bm-card__head">
             <InlineEdit
               value={node.title}
-              placeholder="输入名称"
+              placeholder={t('card.namePh')}
               className="bm-card__name"
               editing={editing}
               active={field === 'name'}
@@ -148,7 +149,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
         <div className="bm-card__btm">
           <button
             className={`pick${selected ? ' is-on' : ''}`}
-            title="选择"
+            title={t('common.pick')}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -159,7 +160,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
             <InlineEdit
               value={node.url}
               displayValue={hostOf(node.url)}
-              placeholder="输入网址"
+              placeholder={t('card.urlPh')}
               className="bm-card__host"
               inputClassName="soft"
               editing={editing}
@@ -180,7 +181,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
           ) : (
             <button
               className="bm-card__edit"
-              title="编辑名称与网址"
+              title={t('card.edit')}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -194,7 +195,7 @@ export const BookmarkCard = memo(function BookmarkCard({ node, index, entering }
 
         <button
           className="xbtn"
-          title="删除（可 Ctrl+Z 撤回）"
+          title={t('card.del')}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { bootstrapStore, useStore } from '@/store';
+import { bootstrapStore, useStore, useT } from '@/store';
 import { applyTheme } from '@/lib/theme';
 import { initFxLayer } from '@/lib/fx';
 import { Toasts } from './Toasts';
@@ -22,6 +22,7 @@ interface ImportState {
 const CLOSED: ImportState = { open: false, prefill: '', token: 0 };
 
 export function App() {
+  const t = useT();
   const fxRef = useRef<HTMLDivElement>(null);
   const panelWidth = useStore((s) => s.panelWidth);
   const searchOpen = useStore((s) => s.searchOpen);
@@ -37,8 +38,9 @@ export function App() {
     // 控制台里只剩一条没人看的 promise rejection
     void bootstrapStore().catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
-      useStore.getState().toast(`初始化失败：${msg}`, { tone: 'warn', duration: 12000 });
+      useStore.getState().toast(t('toast.initFail', { msg }), { tone: 'warn', duration: 12000 });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -124,14 +126,14 @@ export function App() {
     (files: File[]) => {
       const f = files.find((x) => /\.json$/i.test(x.name) || x.type === 'application/json');
       if (!f) {
-        useStore.getState().toast('只支持 .json 文件', { tone: 'warn' });
+        useStore.getState().toast(t('toast.onlyJson'), { tone: 'warn' });
         return;
       }
       const fr = new FileReader();
       fr.onload = () => openImport(String(fr.result ?? ''));
-      fr.readAsText(f, 'utf-8');
-    },
-    [openImport],
+        fr.readAsText(f, 'utf-8');
+      },
+    [openImport, t],
   );
 
   return (

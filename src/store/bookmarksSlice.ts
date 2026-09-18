@@ -17,6 +17,7 @@ import {
   treeRootIds,
 } from '@/lib/bookmarkTree';
 import { normalizeUrl } from '@/lib/url';
+import { t } from '@/lib/i18n';
 import * as Bookmarks from '@/services/chromeBookmarks';
 import { KEYS, getLocal, getLocalArray, hasChromeApi, setLocal } from '@/services/storage';
 import type { BmNode, BmState, ImportItem, RawBmNode, UndoRecord } from '@/lib/types';
@@ -284,7 +285,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         });
         if (!node.isDraft) {
           void Bookmarks.updateNode(id, { title }).catch((err: Error) =>
-            get().toast(`重命名失败：${err.message}`, { tone: 'warn' }),
+            get().toast(t('toast.renameFail', { msg: err.message }), { tone: 'warn' }),
           );
         }
         return;
@@ -301,7 +302,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         return;
       }
       void Bookmarks.updateNode(id, { url }).catch((err: Error) =>
-        get().toast(`修改网址失败：${err.message}`, { tone: 'warn' }),
+        get().toast(t('toast.urlFail', { msg: err.message }), { tone: 'warn' }),
       );
     },
 
@@ -320,13 +321,13 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
     createFolder(parentId) {
       const parent = get().bm.nodes[parentId];
       if (!parent?.isFolder) return;
-      void Bookmarks.createFolder(parentId, '新建文件夹')
+      void Bookmarks.createFolder(parentId, t('bm.newFolder'))
         .then((id) => {
           set((s) => {
             s.bm.nodes[id] = {
               id,
               parentId,
-              title: '新建文件夹',
+              title: t('bm.newFolder'),
               url: '',
               isFolder: true,
               children: [],
@@ -337,9 +338,9 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
             s.collapsed = s.collapsed.filter((x) => x !== parentId);
           });
           get().requestAutoEdit(id, 'name');
-          get().toast('已新建文件夹，输入名称后点击别处确认');
+          get().toast(t('toast.folderCreated'));
         })
-        .catch((err: Error) => get().toast(`新建文件夹失败：${err.message}`, { tone: 'warn' }));
+        .catch((err: Error) => get().toast(t('toast.folderCreateFail', { msg: err.message }), { tone: 'warn' }));
     },
 
     renameNode(id, title) {
@@ -351,7 +352,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       });
       if (node.isDraft) return;
       void Bookmarks.updateNode(id, { title }).catch((err: Error) => {
-        get().toast(`重命名失败：${err.message}`, { tone: 'warn' });
+        get().toast(t('toast.renameFail', { msg: err.message }), { tone: 'warn' });
         void get().syncBookmarks();
       });
     },
@@ -403,14 +404,14 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
           .then(() => {
             const label =
               real.length === 1
-                ? `「${truncate(records[0]?.node.title || '', 16)}」`
-                : `${real.length} 个书签`;
+                ? t('toast.delOne', { t: truncate(records[0]?.node.title || '', 16) })
+                : t('toast.delMany', { n: real.length });
             set((s) => {
               s.undoStack.push({ items: records, label });
               if (s.undoStack.length > 12) s.undoStack.shift();
             });
-            get().toast(`已删除 ${label}`, {
-              action: '撤回  Ctrl+Z',
+            get().toast(t('toast.deleted', { label }), {
+              action: t('toast.undoAction'),
               onAction: () => void get().undo(),
             });
           })
@@ -418,7 +419,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
             set((s) => {
               s.closingBms = s.closingBms.filter((x) => !real.includes(x));
             });
-            get().toast(`删除失败：${err.message}`, { tone: 'warn' });
+            get().toast(t('toast.delFail', { msg: err.message }), { tone: 'warn' });
             void get().syncBookmarks();
           });
       }, wait || 10);
@@ -432,10 +433,14 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       const subs = descendantIds(state.bm, id).filter((d) => state.bm.nodes[d]?.isFolder).length;
 
       get().toast(
-        `「${truncate(node.title, 14)}」下有 ${subs} 个子文件夹、${total} 个书签，删除后无法撤回`,
+        t('toast.folderConfirm', {
+          t: truncate(node.title, 14),
+          n: subs,
+          m: total,
+        }),
         {
           tone: 'danger',
-          action: '确认删除',
+          action: t('toast.confirmDel'),
           duration: 6000,
           onAction: () => {
             void Bookmarks.removeTree(id)
@@ -447,10 +452,10 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
                     s.currentFolder = treeRootIds(s.bm)[0] ?? '';
                   }
                 });
-                get().toast(`已删除文件夹「${truncate(node.title, 14)}」`);
+                get().toast(t('toast.folderDeleted', { t: truncate(node.title, 14) }));
               })
               .catch((err: Error) => {
-                get().toast(`删除文件夹失败：${err.message}`, { tone: 'warn' });
+                get().toast(t('toast.folderDelFail', { msg: err.message }), { tone: 'warn' });
                 void get().syncBookmarks();
               });
           },
@@ -462,7 +467,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       const stack = get().undoStack;
       const rec = stack[stack.length - 1];
       if (!rec) {
-        get().toast('没有可撤回的删除操作', { tone: 'warn' });
+        get().toast(t('toast.noUndo'), { tone: 'warn' });
         return;
       }
       set((s) => void s.undoStack.pop());
@@ -495,9 +500,9 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         const target = sorted[0]?.parentId;
         if (target && get().currentFolder !== target) get().gotoFolder(target);
         get().flashBms(created);
-        get().toast(`已撤回，恢复 ${created.length} 个书签`);
+        get().toast(t('toast.undone', { n: created.length }));
       } catch (err) {
-        get().toast(`撤回失败：${(err as Error).message}`, { tone: 'warn' });
+        get().toast(t('toast.undoFail', { msg: (err as Error).message }), { tone: 'warn' });
         void get().syncBookmarks();
       }
     },
@@ -512,7 +517,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       try {
         await chrome.tabs.create({ url: node.url, active: true });
       } catch (err) {
-        get().toast(`打开失败：${(err as Error).message}`, { tone: 'warn' });
+        get().toast(t('toast.openFail', { msg: (err as Error).message }), { tone: 'warn' });
       }
     },
 
@@ -578,7 +583,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       if (get().currentFolder !== folderId) get().gotoFolder(folderId);
       get().clearTabSel();
       get().flashBms(created);
-      get().toast(`已把 ${created.length} 个标签加入「${truncate(folder.title, 12)}」`);
+      get().toast(t('toast.addedTabs', { n: created.length, t: truncate(folder.title, 12) }));
     },
 
     async moveNodesInto(ids, parentId, index) {
@@ -594,7 +599,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         return true;
       });
       if (!movable.length) {
-        get().toast('不能把文件夹移进它自己或它的子文件夹', { tone: 'warn' });
+        get().toast(t('toast.selfFolder'), { tone: 'warn' });
         return;
       }
 
@@ -625,11 +630,11 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         }
         // 搬运书签后停留在当前浏览的文件夹：只提示结果，不跟随跳到落点文件夹
         const landed = get().bm.nodes[parentId]?.title ?? '';
-        get().toast(`已移至「${truncate(landed, 12)}」`);
+        get().toast(t('toast.moved', { t: truncate(landed, 12) }));
         get().flashBms(movable);
       } catch (err) {
         set((s) => void (s.bm = snapshot));
-        get().toast(`移动失败，已回滚：${(err as Error).message}`, { tone: 'warn' });
+        get().toast(t('toast.moveFail', { msg: (err as Error).message }), { tone: 'warn' });
         void get().syncBookmarks();
       }
     },
@@ -651,7 +656,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         for (const step of plan) await Bookmarks.moveNode(step.id, parentId, step.index);
       } catch (err) {
         set((s) => void (s.bm = snapshot));
-        get().toast(`排序失败，已回滚：${(err as Error).message}`, { tone: 'warn' });
+        get().toast(t('toast.reorderFail', { msg: (err as Error).message }), { tone: 'warn' });
         void get().syncBookmarks();
       }
     },
@@ -707,7 +712,7 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       });
       void idx;
     } catch (err) {
-      get().toast(`保存书签失败：${(err as Error).message}`, { tone: 'warn' });
+      get().toast(t('toast.saveFail', { msg: (err as Error).message }), { tone: 'warn' });
     }
   }
 };

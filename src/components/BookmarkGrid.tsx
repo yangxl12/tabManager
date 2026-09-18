@@ -1,10 +1,27 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { useStore } from '@/store';
+import { useStore, useT } from '@/store';
 import { childrenOf, countOf, pathOf } from '@/lib/bookmarkTree';
-import { EmptyBmsArt, IconFolder, IconPlus, IconSearch, IconUpload } from './icons';
+import { EmptyBmsArt, IconFolder, IconGlobe, IconPlus, IconSearch, IconUpload } from './icons';
 import { BookmarkCard } from './BookmarkCard';
 import { ThemeMenu } from './ThemeMenu';
 import { useAutoScroll, useExternalFileTarget, useFolderTarget, usePaneTarget } from '@/dnd/dnd';
+
+/** 界面语言切换：地球图标，点击 zh / en 互切（真源在 uiSlice.lang） */
+function LangToggle() {
+  const t = useT();
+  const toggleLang = useStore((s) => s.toggleLang);
+  const tip = t('lang.tip');
+  return (
+    <button
+      className="ico-btn lang-btn"
+      title={tip}
+      aria-label={tip}
+      onClick={toggleLang}
+    >
+      <IconGlobe size={15} />
+    </button>
+  );
+}
 
 function SubChip({ id }: { id: string }) {
   const chipRef = useRef<HTMLButtonElement>(null);
@@ -34,6 +51,7 @@ export function BookmarkGrid({
   onOpenSearch: () => void;
   onFiles: (files: File[]) => void;
 }) {
+  const t = useT();
   const paneRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -93,31 +111,32 @@ export function BookmarkGrid({
       data-bm-pane="1"
     >
       <div className="sec-head">
-        <div className="sec-title">{folder?.title || '书签'}</div>
+        <div className="sec-title">{folder?.title || t('bm.fallbackTitle')}</div>
         <span className="count-pill">{list.length}</span>
-        {selected.length > 0 ? <div className="sec-hint">多选模式 · 单击卡片即勾选</div> : null}
+        {selected.length > 0 ? <div className="sec-hint">{t('bm.multiHint')}</div> : null}
         <div className="sec-ops">
           <button
             className="ico-btn bm-search-btn"
-            title="全局搜索书签（Ctrl+K）"
+            title={t('bm.searchTitle')}
             onClick={onOpenSearch}
           >
             <IconSearch size={15} />
           </button>
+          <LangToggle />
           <ThemeMenu />
           {selected.length > 0 ? (
             <>
               <button className="btn btn--sm btn--ghost" onClick={clearBmSel}>
-                取消
+                {t('common.cancel')}
               </button>
               <button className="btn btn--sm btn--danger" onClick={() => void deleteNodes(selected)}>
-                删除选中 · {selected.length}
+                {t('bm.delSel', { n: selected.length })}
               </button>
               <button
                 className="btn btn--sm btn--dark"
                 onClick={() => useStore.getState().createBookmarkDraft()}
               >
-                <IconPlus size={12} /> 新建
+                <IconPlus size={12} /> {t('common.new')}
               </button>
             </>
           ) : (
@@ -127,16 +146,16 @@ export function BookmarkGrid({
                 disabled={!list.length}
                 onClick={() => selectAllBms(list.map((n) => n.id))}
               >
-                全选
+                {t('common.selectAll')}
               </button>
               <button
                 className="btn btn--sm btn--dark"
                 onClick={() => useStore.getState().createBookmarkDraft()}
               >
-                <IconPlus size={12} /> 新建
+                <IconPlus size={12} /> {t('common.new')}
               </button>
               <button className="btn btn--sm" onClick={onOpenImport}>
-                <IconUpload size={12} /> 导入 JSON
+                <IconUpload size={12} /> {t('bm.import')}
               </button>
             </>
           )}
@@ -177,8 +196,8 @@ export function BookmarkGrid({
             <div className="empty__ic">
               <EmptyBmsArt />
             </div>
-            <div className="empty__t">这个文件夹还是空的</div>
-            <div className="empty__s">点右上角「新建」，或把左边的标签拖进来</div>
+            <div className="empty__t">{t('bm.emptyT')}</div>
+            <div className="empty__s">{t('bm.emptyS')}</div>
           </div>
         )}
       </div>

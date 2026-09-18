@@ -6,6 +6,7 @@
  *    （账号同步的 + 此设备本地的），靠 node.syncing 区分，别用 name（受语言影响）或 id（不固定）。
  */
 import type { BmState, BmNode, RawBmNode } from './types';
+import { t } from './i18n';
 
 export interface TreeRow {
   node: BmNode;
@@ -104,10 +105,10 @@ export function rootGroups(state: BmState): RootGroup[] {
 
   const groups: RootGroup[] = [];
   if (buckets.account.length) {
-    groups.push({ key: 'account', label: '账号书签', roots: buckets.account });
+    groups.push({ key: 'account', label: t('group.account'), roots: buckets.account });
   }
   if (buckets.device.length) {
-    groups.push({ key: 'device', label: '此设备书签', roots: buckets.device });
+    groups.push({ key: 'device', label: t('group.device'), roots: buckets.device });
   }
   if (buckets.all.length) groups.push({ key: 'all', label: null, roots: buckets.all });
 

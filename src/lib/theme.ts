@@ -3,14 +3,8 @@
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
-/** 菜单里的展示顺序 */
+/** 菜单里的展示顺序（文案在 lib/i18n 的 theme.* 键，随界面语言切换） */
 export const THEME_MODES: ThemeMode[] = ['light', 'dark', 'system'];
-
-export const THEME_LABEL: Record<ThemeMode, string> = {
-  light: '明亮',
-  dark: '暗黑',
-  system: '跟随系统',
-};
 
 /**
  * localStorage 镜像 key（与 services/storage.ts 的 KEYS.theme 同名）。

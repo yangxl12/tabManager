@@ -1,6 +1,6 @@
 import { memo, useRef } from 'react';
 import { motion } from 'motion/react';
-import { useStore } from '@/store';
+import { useStore, useT } from '@/store';
 import { colorFor } from '@/lib/colors';
 import { hostOf } from '@/lib/url';
 import type { TabItem } from '@/lib/types';
@@ -15,6 +15,7 @@ interface Props {
 }
 
 export const TabCard = memo(function TabCard({ tab, index, entering }: Props) {
+  const t = useT();
   const cellRef = useRef<HTMLElement>(null);
 
   const selected = useStore((s) => s.selectedTabs.includes(tab.id));
@@ -103,7 +104,7 @@ export const TabCard = memo(function TabCard({ tab, index, entering }: Props) {
         <div className="tab-card__btm">
           <button
             className={`pick${selected ? ' is-on' : ''}`}
-            title="选择"
+            title={t('common.pick')}
             onClick={(e) => {
               e.stopPropagation();
               useStore.getState().toggleTabSel(tab.id, e);
@@ -113,7 +114,7 @@ export const TabCard = memo(function TabCard({ tab, index, entering }: Props) {
         </div>
         <button
           className="xbtn"
-          title="关闭标签"
+          title={t('tab.close')}
           onClick={(e) => {
             e.stopPropagation();
             void useStore.getState().closeTabsByIds([tab.id]);

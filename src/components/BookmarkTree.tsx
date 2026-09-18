@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { useStore } from '@/store';
+import { useStore, useT } from '@/store';
 import { totalFolders, visibleRows, allFolderIds } from '@/lib/bookmarkTree';
 import { colorFor } from '@/lib/colors';
 import { IconChevron, IconFolder, IconFolderPlus, IconPencil, IconTrash } from './icons';
@@ -21,6 +21,7 @@ function TreeRow({
   renaming: boolean;
   onRename: (id: string, title: string) => void;
 }) {
+  const t = useT();
   const rowRef = useRef<HTMLDivElement>(null);
   const node = useStore((s) => s.bm.nodes[id]);
   const active = useStore((s) => s.currentFolder === id);
@@ -107,23 +108,23 @@ function TreeRow({
       {renaming ? null : (
         <RowMenu
           marker={id}
-          title={`「${node.title}」更多操作`}
+          title={t('tree.rowMore', { t: node.title })}
           items={[
             {
               key: 'rename',
-              label: '重命名',
+              label: t('tree.rename'),
               icon: <IconPencil size={13} />,
               onPick: () => onRename(id, '\u0000__start__'),
             },
             {
               key: 'child',
-              label: '新建子文件夹',
+              label: t('tree.newSub'),
               icon: <IconFolderPlus size={13} />,
               onPick: () => createFolder(id),
             },
             {
               key: 'remove',
-              label: '删除文件夹',
+              label: t('tree.delFolder'),
               icon: <IconTrash size={13} />,
               danger: true,
               onPick: () => deleteFolderTree(id),
@@ -136,6 +137,7 @@ function TreeRow({
 }
 
 export function BookmarkTree() {
+  const t = useT();
   const bm = useStore((s) => s.bm);
   const collapsed = useStore((s) => s.collapsed);
   const autoEdit = useStore((s) => s.autoEdit);
@@ -170,7 +172,7 @@ export function BookmarkTree() {
   return (
     <aside className="pane-tree">
       <div className="sec-head">
-        <div className="sec-title">书签文件夹</div>
+        <div className="sec-title">{t('tree.title')}</div>
         <div className="sec-ops">
           <span className="count-pill">{folderCount}</span>
         </div>
@@ -196,7 +198,7 @@ export function BookmarkTree() {
           ))
         ) : (
           <div className="empty" style={{ padding: '20px 8px' }}>
-            <div className="empty__s">还没有读到书签文件夹</div>
+            <div className="empty__s">{t('tree.empty')}</div>
           </div>
         )}
       </div>

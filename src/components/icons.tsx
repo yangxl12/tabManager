@@ -161,6 +161,17 @@ export function IconThemeAuto({ size = 14, className }: IconProps) {
   );
 }
 
+/** 界面语言切换：地球（i18n 通用语义） */
+export function IconGlobe({ size = 15, className }: IconProps) {
+  return (
+    <svg {...S(size)} strokeWidth={1.5} className={className}>
+      <circle cx="8" cy="8" r="6.1" />
+      <ellipse cx="8" cy="8" rx="2.7" ry="6.1" />
+      <path d="M2.2 8h11.6M2.9 5h10.2M2.9 11h10.2" />
+    </svg>
+  );
+}
+
 export function IconBrand({ size = 24, className }: IconProps) {
   return (
     <svg
