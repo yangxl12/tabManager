@@ -5,11 +5,9 @@ import { normalizeTheme } from '@/lib/theme';
 import { normalizeLang, setLangMirror, t } from '@/lib/i18n';
 import type { QuickSite } from '@/lib/types';
 import { createBookmarksSlice, type BookmarksSlice } from './bookmarksSlice';
-import { QUICK_LIMIT, createQuickSlice, type QuickSlice } from './quickSlice';
+import { createQuickSlice, type QuickSlice } from './quickSlice';
 import { createTabsSlice, type TabsSlice } from './tabsSlice';
 import { createUiSlice, type UiSlice } from './uiSlice';
-
-export { QUICK_LIMIT };
 
 /** 组件里的 t()：订阅 s.lang，切语言时触发重渲染（非 React 代码直接用 lib/i18n 的 t） */
 export function useT() {

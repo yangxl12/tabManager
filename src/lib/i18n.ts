@@ -59,7 +59,6 @@ const zh = {
 
   // 快捷站点
   'quick.addTitle': '新增快捷站点',
-  'quick.limitTitle': '已达上限 {n} 个',
   'quick.add': '新增',
   'quick.namePh': '名称，如：知乎',
   'quick.urlPh': '网址，如：zhihu.com',
@@ -68,7 +67,10 @@ const zh = {
   'quick.needBoth': '名称和网址都要填',
   'quick.badUrl': '网址格式不对，例如 zhihu.com',
   'quick.deleted': '已删除快捷站点「{t}」',
-  'quick.limit': '快捷站点最多 {n} 个，先删掉一些再添加',
+  'quick.dropHint': '松手加入快捷访问',
+  'quick.added': '已加入 {n} 个快捷访问',
+  'quick.addedSkip': '已加入 {n} 个，跳过 {s} 个（重复或没有可用网址）',
+  'quick.addNone': '没有可加入的条目：都已在快捷访问里，或没有可用网址',
 
   // 导入弹窗
   'imp.title': '批量导入书签',
@@ -219,7 +221,6 @@ const en: Record<I18nKey, string> = {
   'card.del': 'Delete (Ctrl+Z to undo)',
 
   'quick.addTitle': 'Add quick site',
-  'quick.limitTitle': 'Limit of {n} reached',
   'quick.add': 'Add',
   'quick.namePh': 'Name, e.g. GitHub',
   'quick.urlPh': 'URL, e.g. github.com',
@@ -228,7 +229,10 @@ const en: Record<I18nKey, string> = {
   'quick.needBoth': 'Both name and URL are required',
   'quick.badUrl': 'Invalid URL, e.g. github.com',
   'quick.deleted': 'Removed quick site "{t}"',
-  'quick.limit': 'Up to {n} quick sites — remove some first',
+  'quick.dropHint': 'Drop to add to quick sites',
+  'quick.added': 'Added {n} quick site(s)',
+  'quick.addedSkip': 'Added {n}, skipped {s} (duplicate or no usable URL)',
+  'quick.addNone': 'Nothing to add: already in quick sites, or no usable URL',
 
   'imp.title': 'Bulk import bookmarks',
   'imp.descA': 'Supports ',

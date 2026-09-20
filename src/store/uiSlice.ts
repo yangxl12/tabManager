@@ -28,6 +28,8 @@ export interface DragState {
   dropFolderId: string | null;
   /** 当前指针落在哪个面板的空区上（标签面板 / 书签面板），null 表示没有 */
   dropPane: 'tab' | 'bookmark' | null;
+  /** 当前指针落在快捷访问区上（标签 / 书签拖过去 = 加入快捷访问） */
+  dropQuick: boolean;
 }
 
 export interface UiSlice {
@@ -62,6 +64,7 @@ const EMPTY_DRAG: DragState = {
   indicator: null,
   dropFolderId: null,
   dropPane: null,
+  dropQuick: false,
 };
 
 const DEFAULT_PANEL_WIDTH = 46;

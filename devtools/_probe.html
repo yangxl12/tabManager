@@ -963,6 +963,152 @@
             }
           }
 
+          /* ---------- 拖到快捷访问：标签 / 书签 → 快捷站点（且不再有数量上限） ---------- */
+          {
+            const Q = () => W.__tabnest.getState().quickSites;
+            const normKey = (u) => String(u || '').trim().toLowerCase().replace(/\/+$/, '');
+            const normTxt = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+            const bareHost = (u) =>
+              normKey(u)
+                .replace(/^[a-z]+:\/\//, '')
+                .replace(/^www\./, '')
+                .split(/[/?#]/)[0];
+            const INTERNAL = /^(chrome|edge|about|brave|opera|vivaldi|view-source|devtools|chrome-extension):/;
+            const newOnes = (ids) => Q().filter((s) => !ids.has(s.id));
+            const pane = $('.pane-quick');
+
+            log(!!pane, '存在快捷访问区');
+            log(pane.hasAttribute('data-drop-target-for-element'), '快捷访问区注册为拖拽落点');
+
+            // 落点提示（直接写状态，不依赖指针时序）
+            W.__tabnest.getState().setDrag({ active: true, kind: 'tab', ids: [], dropQuick: true });
+            await sleep(220);
+            log(!!$('.pane-quick.is-drop'), '拖标签经过快捷访问区 → 显示落点高亮');
+            log(!!$('.pane-quick .drop-hint'), '出现「松手加入快捷访问」提示条');
+            log(
+              !$('.pane-main.drop-ready') && !$('.pane-main.drop-hint'),
+              '经过快捷访问区时右侧书签面板不高亮',
+            );
+            W.__tabnest.getState().resetDrag();
+            await sleep(220);
+            log(
+              !$('.pane-quick.is-drop') && !$('.pane-quick .drop-hint'),
+              '拖拽结束后高亮与提示条一起清除',
+            );
+
+            // 标签卡片 → 快捷访问
+            {
+              const ids0 = new Set(Q().map((s) => s.id));
+              const used = new Set(Q().map((s) => normKey(s.url)));
+              const pick = W.__tabnest.getState().tabs.find((t) => {
+                const u = normKey(t.url);
+                return u && !INTERNAL.test(u) && !used.has(u);
+              });
+              log(!!pick, '拖拽前置：有还没加入快捷访问的标签', pick ? pick.url : '(没有候选标签)');
+              if (pick) {
+                const before = Q().length;
+                nativeDrag(tabCell(String(pick.id)), pane, 0.5);
+                await sleep(650);
+                const added = newOnes(ids0).pop();
+                log(
+                  Q().length === before + 1 && !!added,
+                  '拖标签到快捷访问 → 新增一个磁贴',
+                  `${before} → ${Q().length}`,
+                );
+                log(!!added && added.url === pick.url, '新磁贴网址取自标签', added ? added.url : '(没加上)');
+                log(
+                  !!added && added.name === (normTxt(pick.title).slice(0, 24) || bareHost(pick.url)),
+                  '新磁贴名称取自标签标题',
+                  added ? added.name : '(没加上)',
+                );
+                log(
+                  !!added && $$('.quick-tile__nm').some((el) => el.textContent === added.name),
+                  '新磁贴已渲染到快捷访问网格里',
+                );
+                log(
+                  $$('[data-tab-card]').length === W.__tabnest.getState().tabs.length,
+                  '拖到快捷访问只是复制：标签一个都没少',
+                  `卡片 ${$$('[data-tab-card]').length} / store ${W.__tabnest.getState().tabs.length}`,
+                );
+
+                // 同一个标签再拖一次：按网址去重，不叠加
+                const after = Q().length;
+                nativeDrag(tabCell(String(pick.id)), pane, 0.5);
+                await sleep(650);
+                log(Q().length === after, '重复拖入同一网址 → 去重不叠加', `${after} → ${Q().length}`);
+              }
+            }
+
+            // 书签卡片 → 快捷访问
+            {
+              const ids0 = new Set(Q().map((s) => s.id));
+              const used = new Set(Q().map((s) => normKey(s.url)));
+              const st0 = W.__tabnest.getState();
+              const cell = $$('[data-bm-card]').find((el) => {
+                const n = st0.bm.nodes[el.getAttribute('data-bm-card')];
+                const u = normKey(n && n.url);
+                return u && !INTERNAL.test(u) && !used.has(u);
+              });
+              log(
+                !!cell,
+                '拖拽前置：有还没加入快捷访问的书签卡片',
+                cell ? cell.getAttribute('data-bm-card') : '(没有候选书签)',
+              );
+              if (cell) {
+                const id = cell.getAttribute('data-bm-card');
+                const node = W.__tabnest.getState().bm.nodes[id];
+                const before = Q().length;
+                nativeDrag(cell, pane, 0.5);
+                await sleep(650);
+                const added = newOnes(ids0).pop();
+                log(
+                  Q().length === before + 1,
+                  '拖书签到快捷访问 → 新增一个磁贴',
+                  `${before} → ${Q().length}`,
+                );
+                log(
+                  !!added &&
+                    added.url === node.url &&
+                    added.name === (normTxt(node.title).slice(0, 24) || bareHost(node.url)),
+                  '新磁贴名称 / 网址取自书签',
+                  added ? `${added.name} · ${added.url}` : '(没加上)',
+                );
+                log(
+                  !!W.__tabnest.getState().bm.nodes[id] && !!$(`[data-bm-card="${id}"]`),
+                  '拖到快捷访问只是复制：书签原样留在列表里',
+                );
+              }
+            }
+
+            // 数量上限已移除：超过原上限 16 也照收
+            {
+              const before = Q().length;
+              const st = W.__tabnest.getState();
+              for (let i = 0; i < 20; i++) st.addQuick('上限测试' + i, `https://limit-test.dev/${i}`);
+              await sleep(400);
+              log(
+                Q().length === before + 20 && Q().length > 16,
+                '快捷访问没有数量上限（超过原上限 16 仍全部加入）',
+                `${before} → ${Q().length}`,
+              );
+              log(
+                $$('.quick-tile:not(.quick-tile--add)').length === Q().length,
+                '磁贴数与数据一致',
+                `磁贴 ${$$('.quick-tile:not(.quick-tile--add)').length} / 数据 ${Q().length}`,
+              );
+              // 收尾：删掉测试磁贴，别把后续用例的布局撑变形
+              Q()
+                .filter((s) => s.name.indexOf('上限测试') === 0)
+                .forEach((s) => st.removeQuick(s.id));
+              await sleep(300);
+              log(
+                $$('.quick-tile:not(.quick-tile--add)').length === Q().length,
+                '清理测试磁贴后仍然一致',
+                `磁贴 ${$$('.quick-tile:not(.quick-tile--add)').length} / 数据 ${Q().length}`,
+              );
+            }
+          }
+
           /* ---------- 跨存储搬运（回归：账号书签与此设备书签曾禁止互移） ---------- */
           {
             const st = W.__tabnest.getState();

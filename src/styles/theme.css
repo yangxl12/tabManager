@@ -401,14 +401,42 @@ textarea {
   --sec: var(--color-amber);
   --sec-soft: var(--color-amber-soft);
   flex: none;
+  /* 落点浮层（「松手加入」提示）需要定位基准 */
+  position: relative;
   padding-bottom: 13px;
   border-bottom: 1px solid var(--color-line-2);
   margin-bottom: 13px;
+}
+/* 标签 / 书签卡片拖到快捷访问区上：虚线框 + 底色，沿用书签面板 drop-ready 的语言 */
+.pane-quick.is-drop {
+  background: var(--sec-soft);
+  border-radius: 12px;
+}
+.pane-quick.is-drop::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 2px dashed var(--sec);
+  border-radius: 12px;
+  pointer-events: none;
+}
+/* 提示条跟着本区的琥珀色，别用书签面板的墨绿 */
+.pane-quick .drop-hint {
+  background: var(--sec);
+  font-size: 12px;
+  padding: 7px 13px;
+  border-radius: 8px;
 }
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
   gap: 5px;
+  /* 数量无上限：囤多了让本区自己滚，别把下面的标签列表挤没 */
+  max-height: 34vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
 }
 .quick-tile {
   position: relative;

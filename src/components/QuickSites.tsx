@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { QUICK_LIMIT, useStore, useT } from '@/store';
+import { useStore, useT } from '@/store';
 import { colorFor, firstChar } from '@/lib/colors';
 import { hostOf, normalizeUrl } from '@/lib/url';
 import { IconPencil, IconTrash } from './icons';
 import { RowMenu } from './RowMenu';
+import { useQuickTarget } from '@/dnd/dnd';
 
 interface FormState {
   open: boolean;
@@ -23,20 +24,19 @@ export function QuickSites() {
   const removeQuick = useStore((s) => s.removeQuick);
   const openTab = useStore((s) => s.openTab);
   const toast = useStore((s) => s.toast);
+  const dropQuick = useStore((s) => s.drag.dropQuick);
   const [form, setForm] = useState<FormState>(CLOSED);
+  const paneRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
-  const full = sites.length >= QUICK_LIMIT;
+  // 标签 / 书签卡片拖到这里 = 加入快捷访问（不设数量上限，随便加）
+  useQuickTarget({ elementRef: paneRef });
 
   useEffect(() => {
     if (form.open) nameRef.current?.focus();
   }, [form.open]);
 
   const openAdd = () => {
-    if (full) {
-      toast(t('quick.limit', { n: QUICK_LIMIT }), { tone: 'warn' });
-      return;
-    }
     setForm({ open: true, editingId: null, name: '', url: '' });
   };
 
@@ -60,7 +60,11 @@ export function QuickSites() {
   };
 
   return (
-    <div className="pane-quick">
+    <div
+      ref={paneRef}
+      className={`pane-quick${dropQuick ? ' is-drop' : ''}`}
+      data-quick-pane="1"
+    >
       <div className="quick-grid">
         {sites.map((s) => {
           const c = colorFor(s.name);
@@ -106,14 +110,15 @@ export function QuickSites() {
 
         <div
           className="quick-tile quick-tile--add"
-          title={full ? t('quick.limitTitle', { n: QUICK_LIMIT }) : t('quick.addTitle')}
-          style={full ? { opacity: 0.45 } : undefined}
+          title={t('quick.addTitle')}
           onClick={openAdd}
         >
           <span className="quick-tile__ic">+</span>
           <span className="quick-tile__nm">{t('quick.add')}</span>
         </div>
       </div>
+
+      {dropQuick ? <div className="drop-hint">{t('quick.dropHint')}</div> : null}
 
       <AnimatePresence initial={false}>
         {form.open ? (

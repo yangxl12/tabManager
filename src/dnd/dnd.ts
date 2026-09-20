@@ -1,6 +1,6 @@
 /**
  * 拖拽系统（pragmatic-drag-and-drop）
- * 5 个场景：标签排序 / 标签→书签 / 书签排序 / 书签·文件夹→文件夹 / JSON 文件拖入
+ * 6 个场景：标签排序 / 标签→书签 / 书签排序 / 书签·文件夹→文件夹 / 标签·书签→快捷访问 / JSON 文件拖入
  * 所有落点逻辑集中在 useDndRoot 的 monitor 里，卡片只负责注册自身。
  */
 import { useEffect, useRef, type RefObject } from 'react';
@@ -16,6 +16,7 @@ import { attachClosestEdge, extractClosestEdge } from '@atlaskit/pragmatic-drag-
 import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element';
 import type { DropTargetRecord } from '@atlaskit/pragmatic-drag-and-drop/types';
 import { childrenOf, dropInsertIndex, reorderIds } from '@/lib/bookmarkTree';
+import { hostOf } from '@/lib/url';
 import { useStore } from '@/store';
 
 export type DragKind = 'tab' | 'bookmark';
@@ -46,7 +47,17 @@ interface PaneTargetData {
   scope: 'tab' | 'bookmark';
 }
 
-type AnyTargetData = SortTargetData | FolderTargetData | PaneTargetData | Record<string, unknown>;
+/** 快捷访问区：标签 / 书签拖过来 = 加入快捷访问（不改动源） */
+interface QuickTargetData {
+  kind: 'quick';
+}
+
+type AnyTargetData =
+  | SortTargetData
+  | FolderTargetData
+  | PaneTargetData
+  | QuickTargetData
+  | Record<string, unknown>;
 
 function isDragData(data: unknown): data is DragData {
   if (!data || typeof data !== 'object') return false;
@@ -161,6 +172,26 @@ export function usePaneTarget({
   }, [elementRef, scope]);
 }
 
+/* ------------------------------ 注册：快捷访问落点 ------------------------------ */
+
+/**
+ * 快捷访问区整体作为落点（磁贴本身不注册，事件冒泡上来即可）。
+ * 落在磁贴缝里也算命中，比只认某个磁贴宽容得多。
+ */
+export function useQuickTarget({ elementRef }: { elementRef: RefObject<HTMLElement | null> }) {
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    return dropTargetForElements({
+      element: el,
+      getData: () => ({ kind: 'quick' }) as unknown as Record<string, unknown>,
+      canDrop: ({ source }) => isDragData(source.data),
+      // 源不动（标签不会关、书签不会删），语义上是复制
+      getDropEffect: () => 'copy',
+    });
+  }, [elementRef]);
+}
+
 /* ------------------------------ 注册：外部文件拖入 ------------------------------ */
 
 let fileDropHandler: ((files: File[]) => void) | null = null;
@@ -205,24 +236,30 @@ function updateIndicator(targets: DropTargetRecord[]): void {
   const st = useStore.getState();
   const top = targets[0];
   if (!top) {
-    if (st.drag.indicator || st.drag.dropFolderId || st.drag.dropPane) {
-      st.setDrag({ indicator: null, dropFolderId: null, dropPane: null });
+    if (st.drag.indicator || st.drag.dropFolderId || st.drag.dropPane || st.drag.dropQuick) {
+      st.setDrag({ indicator: null, dropFolderId: null, dropPane: null, dropQuick: false });
     }
     return;
   }
   const d = top.data as AnyTargetData;
 
+  if (d.kind === 'quick') {
+    if (!st.drag.dropQuick) {
+      st.setDrag({ dropQuick: true, indicator: null, dropFolderId: null, dropPane: null });
+    }
+    return;
+  }
   if (d.kind === 'folder') {
     const id = (d as FolderTargetData).id;
     if (st.drag.dropFolderId !== id) {
-      st.setDrag({ dropFolderId: id, indicator: null, dropPane: null });
+      st.setDrag({ dropFolderId: id, indicator: null, dropPane: null, dropQuick: false });
     }
     return;
   }
   if (d.kind === 'pane') {
     const scope = (d as PaneTargetData).scope;
     if (st.drag.dropPane !== scope) {
-      st.setDrag({ dropPane: scope, indicator: null, dropFolderId: null });
+      st.setDrag({ dropPane: scope, indicator: null, dropFolderId: null, dropQuick: false });
     }
     return;
   }
@@ -230,19 +267,21 @@ function updateIndicator(targets: DropTargetRecord[]): void {
     const id = (d as SortTargetData).id;
     // 落点在自己那一组身上：不显示插入线，但保留所在面板的高亮，避免边界抖动闪烁
     if (st.drag.ids.includes(id)) {
-      if (st.drag.indicator) st.setDrag({ indicator: null });
+      if (st.drag.indicator || st.drag.dropQuick) {
+        st.setDrag({ indicator: null, dropQuick: false });
+      }
       return;
     }
     const edge = extractClosestEdge(top.data);
     const side: 'before' | 'after' = edge === 'right' ? 'after' : 'before';
     const cur = st.drag.indicator;
     if (!cur || cur.kind !== d.kind || cur.targetId !== id || cur.side !== side) {
-      st.setDrag({ indicator: { kind: d.kind, targetId: id, side }, dropFolderId: null });
+      st.setDrag({ indicator: { kind: d.kind, targetId: id, side }, dropFolderId: null, dropQuick: false });
     }
     return;
   }
-  if (st.drag.indicator || st.drag.dropFolderId || st.drag.dropPane) {
-    st.setDrag({ indicator: null, dropFolderId: null, dropPane: null });
+  if (st.drag.indicator || st.drag.dropFolderId || st.drag.dropPane || st.drag.dropQuick) {
+    st.setDrag({ indicator: null, dropFolderId: null, dropPane: null, dropQuick: false });
   }
 }
 
@@ -254,6 +293,22 @@ function handleDrop(source: DragData, targets: DropTargetRecord[]): void {
 
   // 落在被拖动的那一组自己身上：不做任何事
   if ((d.kind === 'tab' || d.kind === 'bookmark') && source.ids.includes((d as SortTargetData).id)) {
+    return;
+  }
+
+  // 快捷访问：标签 / 书签拖上来 = 存成快捷站点（源保持不动）
+  if (d.kind === 'quick') {
+    const items =
+      source.kind === 'tab'
+        ? source.ids
+            .map((id) => st.tabs.find((x) => String(x.id) === id))
+            .map((tab) => (tab ? { name: tab.title || hostOf(tab.url), url: tab.url } : null))
+        : source.ids
+            .map((id) => st.bm.nodes[id])
+            .map((node) =>
+              node && !node.isFolder ? { name: node.title || hostOf(node.url), url: node.url } : null,
+            );
+    st.addQuickSites(items.filter((x): x is { name: string; url: string } => x !== null));
     return;
   }
 
@@ -324,6 +379,7 @@ export function useDndRoot(): void {
           indicator: null,
           dropFolderId: null,
           dropPane: null,
+          dropQuick: false,
         });
       },
       onDrag: ({ location }) => updateIndicator(location.current.dropTargets),
@@ -347,6 +403,7 @@ export function useDndRoot(): void {
           indicator: null,
           dropFolderId: null,
           dropPane: null,
+          dropQuick: false,
         });
       },
       onDrag: ({ location }) => updateIndicator(location.current.dropTargets),
