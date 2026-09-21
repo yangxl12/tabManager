@@ -512,10 +512,10 @@ textarea {
   background: var(--sec);
 }
 .quick-tile.drop-b::before {
-  left: -4px;
+  left: 2px;
 }
 .quick-tile.drop-a::after {
-  right: -4px;
+  right: 2px;
 }
 .quick-form {
   display: grid;
@@ -620,11 +620,13 @@ textarea {
   border-radius: 3px;
   background: var(--sec);
 }
+/* 插入线画在卡片内侧：第一列 / 第一行的线若放到卡片外，会被 .scroll 的
+   overflow-x: hidden 裁掉，用户看不到「插到第一位」的提示 */
 .tab-card.drop-b::before {
-  left: -7px;
+  left: 2px;
 }
 .tab-card.drop-a::after {
-  right: -7px;
+  right: 2px;
 }
 .tab-card__top {
   display: flex;
@@ -1060,10 +1062,10 @@ textarea {
   background: var(--sec);
 }
 .bm-card.drop-b::before {
-  left: -6px;
+  left: 2px;
 }
 .bm-card.drop-a::after {
-  right: -6px;
+  right: 2px;
 }
 .bm-card.is-flash {
   animation: flash 1s var(--ease-nest);

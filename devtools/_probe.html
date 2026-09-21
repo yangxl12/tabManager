@@ -1381,6 +1381,112 @@
             await sleep(340);
             log(mode() === initial, '主题模式已还原', `theme=${mode()}`);
           }
+          /* ---------- 网格空白处的排序落点（回归：拖到第一个位置没反应） ---------- */
+          {
+            const dropAt = (srcEl, x, y, dstEl) => {
+              const dt = new W.DataTransfer();
+              const fire = (type, target) =>
+                target.dispatchEvent(
+                  new W.DragEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    dataTransfer: dt,
+                    clientX: Math.round(x),
+                    clientY: Math.round(y),
+                  }),
+                );
+              fire('dragstart', srcEl);
+              fire('dragenter', dstEl);
+              fire('dragover', dstEl);
+              return {
+                snap: () => W.__tabnest.getState().drag,
+                drop: () => {
+                  fire('drop', dstEl);
+                  fire('dragend', srcEl);
+                },
+              };
+            };
+
+            // 标签：把末张拖到第一张卡片「左边界外 3px」——指针最常见的落点
+            {
+              const grid = $('.tab-grid');
+              const list = $$('[data-tab-card]');
+              const src = list[list.length - 1];
+              const r0 = list[0].getBoundingClientRect();
+              const before = tabIds();
+              const h = dropAt(src, r0.left - 3, r0.top + r0.height / 2, grid);
+              await sleep(140);
+              h.drop();
+              await sleep(520);
+              log(
+                tabIds()[0] === before[before.length - 1],
+                '拖标签到第一张左侧缝隙 → 卡片落到第一位',
+                `${before[before.length - 1]} → 首位 ${tabIds()[0]}`,
+              );
+
+              const mid = $$('[data-tab-card]');
+              const rm = mid[0].getBoundingClientRect();
+              const r1 = mid[1].getBoundingClientRect();
+              const h2 = dropAt(mid[mid.length - 1], (rm.right + r1.left) / 2, rm.top + rm.height / 2, grid);
+              await sleep(140);
+              h2.drop();
+              await sleep(520);
+              log(
+                tabIds()[0] === mid[0].getAttribute('data-tab-card'),
+                '拖标签到卡片列缝 → 插到缝左侧卡片之后（不再跳到末尾）',
+                tabIds().slice(0, 3).join(),
+              );
+            }
+
+            // 快捷磁贴：同一落点
+            {
+              const tiles = () => $$('[data-quick-tile]');
+              const list = tiles();
+              const src = list[list.length - 1];
+              const r0 = list[0].getBoundingClientRect();
+              const before = list.map((el) => el.getAttribute('data-quick-tile'));
+              const h = dropAt(src, r0.left - 3, r0.top + r0.height / 2, $('.pane-quick'));
+              await sleep(140);
+              h.drop();
+              await sleep(520);
+              log(
+                tiles()[0].getAttribute('data-quick-tile') === before[before.length - 1],
+                '拖磁贴到第一张左侧缝隙 → 磁贴落到第一位',
+                `${before[before.length - 1]} → 首位 ${tiles()[0].getAttribute('data-quick-tile')}`,
+              );
+            }
+
+            // 书签：找一个书签 ≥3 个的文件夹再拖
+            {
+              const st0 = W.__tabnest.getState();
+              const kidsOf = (fid) =>
+                Object.values(st0.bm.nodes).filter((n) => n.parentId === fid && !n.isFolder);
+              const fid = Object.keys(st0.bm.nodes).find(
+                (id) => st0.bm.nodes[id]?.isFolder && kidsOf(id).length >= 3,
+              );
+              if (!fid) {
+                log(false, '书签排序前置：找不到含 ≥3 个书签的文件夹');
+              } else {
+                st0.gotoFolder(fid);
+                await sleep(420);
+                const list = () => $$('[data-bm-card]');
+                const src = list()[list().length - 1];
+                const r0 = list()[0].getBoundingClientRect();
+                const before = list().map((el) => el.getAttribute('data-bm-card'));
+                const h = dropAt(src, r0.left - 3, r0.top + r0.height / 2, $('[data-bm-pane]'));
+                await sleep(140);
+                h.drop();
+                await sleep(620);
+                const after = list().map((el) => el.getAttribute('data-bm-card'));
+                log(
+                  after[0] === before[before.length - 1],
+                  '拖书签到第一张左侧缝隙 → 卡片落到第一位',
+                  `${before[before.length - 1]} → 首位 ${after[0]}`,
+                );
+              }
+            }
+          }
         } catch (err) {
           log(false, '脚本异常', err && err.message);
         }

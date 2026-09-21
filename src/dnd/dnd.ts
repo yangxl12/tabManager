@@ -92,6 +92,95 @@ function isQuickDrag(data: unknown): boolean {
   return !!data && typeof data === 'object' && (data as { kind?: unknown }).kind === 'quick';
 }
 
+/* ------------------------- 空白处落点：几何兜底 ------------------------- */
+
+/** 网格里一张卡片的几何信息 */
+export interface SortCell {
+  id: string;
+  parentId: string | null;
+  index: number;
+  el: HTMLElement;
+}
+
+/**
+ * 指针落在卡片外侧（缝隙 / 边缘外 / 最后一行空位）时，取几何上最近的一张卡片，
+ * 再按左半区判定插到它前面还是后面。
+ *
+ * 不这么做的话，这些位置会命中容器落点（pane），语义是「挪到末尾」——
+ * 用户把卡片推到第一个位置，指针只要偏出卡片一两像素，插入线就消失、
+ * 松手还跑到最后，表现就是「拖不到第一个位置」。
+ */
+function nearestCell(
+  cells: SortCell[],
+  x: number,
+  y: number,
+): { cell: SortCell; side: 'before' | 'after' } | null {
+  let best: SortCell | null = null;
+  let bestD = Infinity;
+  for (const cell of cells) {
+    const r = cell.el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) continue;
+    const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
+    const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) {
+      bestD = d;
+      best = cell;
+    }
+  }
+  if (!best) return null;
+  const r = best.el.getBoundingClientRect();
+  return { cell: best, side: x < r.left + r.width / 2 ? 'before' : 'after' };
+}
+
+/**
+ * 读插入侧：卡片本体由 closest-edge 给出（left/right），
+ * 容器落点由几何算出（side 字段），两种统一成 before/after。
+ */
+function readSide(data: unknown): 'before' | 'after' {
+  const edge = extractClosestEdge(data as Record<string, unknown>);
+  if (edge === 'left') return 'before';
+  if (edge === 'right') return 'after';
+  return (data as { side?: 'before' | 'after' }).side === 'after' ? 'after' : 'before';
+}
+
+/** 容器内的可排序卡片：DOM 顺序即视觉顺序，下标直接用节点序号 */
+export function domCells(
+  root: HTMLElement | null,
+  selector: string,
+  attr: string,
+  parentId: string | null,
+): SortCell[] {
+  if (!root) return [];
+  const out: SortCell[] = [];
+  root.querySelectorAll<HTMLElement>(selector).forEach((el, i) => {
+    const id = el.getAttribute(attr);
+    if (id) out.push({ id, parentId, index: i, el });
+  });
+  return out;
+}
+
+/**
+ * 取最内层的「有效」落点。
+ *
+ * 排序落点都是 sticky 的：指针一旦离开卡片，pdnd 会把 sticky 那条补回落点表
+ * 并排在数组最前 —— 被拖动的卡片自己也在里面。直接拿 targets[0] 就等于
+ * 「落在自己身上」：插入线不亮、松手也不生效，表现就是「拖不到那个位置」。
+ * 这里一律跳过 sticky 补位项和正在被拖动的那些 id。
+ */
+function pickTarget(
+  targets: DropTargetRecord[],
+  movingIds: string[],
+): DropTargetRecord | undefined {
+  const moving = new Set(movingIds);
+  return targets.find((t) => {
+    if (t.isActiveDueToStickiness) return false;
+    const d = t.data as { kind?: unknown; id?: unknown };
+    const sortable = d.kind === 'tab' || d.kind === 'bookmark' || d.kind === 'quickTile';
+    return !(sortable && typeof d.id === 'string' && moving.has(d.id));
+  });
+}
+
 /* ------------------------------ 注册：可拖拽卡片 ------------------------------ */
 
 export function useCardDrag({
@@ -179,16 +268,39 @@ export function useFolderTarget({
 export function usePaneTarget({
   elementRef,
   scope,
+  getCells,
 }: {
   elementRef: RefObject<HTMLElement | null>;
   scope: 'tab' | 'bookmark';
+  /**
+   * 传了以后，落在网格空白处（卡片之间的缝、第一张左侧、最后一行空位）
+   * 也算一次排序落点：按几何取最近卡片 + 左右半区。
+   * 不传则维持 pane 语义（挪到末尾 / 加入）。
+   */
+  getCells?: () => SortCell[];
 }) {
+  const getCellsRef = useRef(getCells);
+  getCellsRef.current = getCells;
+
   useEffect(() => {
     const el = elementRef.current;
     if (!el) return;
     return dropTargetForElements({
       element: el,
-      getData: () => ({ kind: 'pane', scope }) as unknown as Record<string, unknown>,
+      getData: ({ input }) => {
+        const cells = getCellsRef.current;
+        const hit = cells ? nearestCell(cells(), input.clientX, input.clientY) : null;
+        if (hit) {
+          return {
+            kind: scope,
+            id: hit.cell.id,
+            parentId: hit.cell.parentId,
+            index: hit.cell.index,
+            side: hit.side,
+          } as unknown as Record<string, unknown>;
+        }
+        return { kind: 'pane', scope } as unknown as Record<string, unknown>;
+      },
       canDrop: ({ source }) => {
         const data = source.data as unknown;
         if (!isCardDrag(data)) return false;
@@ -211,7 +323,25 @@ export function useQuickTarget({ elementRef }: { elementRef: RefObject<HTMLEleme
     if (!el) return;
     return dropTargetForElements({
       element: el,
-      getData: () => ({ kind: 'quickPane' }) as unknown as Record<string, unknown>,
+      getData: ({ input, source }) => {
+        // 磁贴拖到缝里 / 空白处：按几何取最近磁贴，而不是「挪到末尾」
+        if (isQuickDrag(source.data)) {
+          const hit = nearestCell(
+            domCells(el, '[data-quick-tile]', 'data-quick-tile', null),
+            input.clientX,
+            input.clientY,
+          );
+          if (hit) {
+            return {
+              kind: 'quickTile',
+              id: hit.cell.id,
+              index: hit.cell.index,
+              side: hit.side,
+            } as unknown as Record<string, unknown>;
+          }
+        }
+        return { kind: 'quickPane' } as unknown as Record<string, unknown>;
+      },
       // 标签 / 书签 = 加入快捷访问；快捷磁贴 = 拖到空白处挪到末尾
       canDrop: ({ source }) => isCardDrag(source.data) || isQuickDrag(source.data),
       // 标签不会关、书签不会删，语义上是复制；磁贴本身是搬家
@@ -294,7 +424,7 @@ export function useAutoScroll(elementRef: RefObject<HTMLElement | null>) {
 
 function updateIndicator(targets: DropTargetRecord[]): void {
   const st = useStore.getState();
-  const top = targets[0];
+  const top = pickTarget(targets, st.drag.ids);
   if (!top) {
     if (st.drag.indicator || st.drag.dropFolderId || st.drag.dropPane || st.drag.dropQuick) {
       st.setDrag({ indicator: null, dropFolderId: null, dropPane: null, dropQuick: false });
@@ -313,8 +443,7 @@ function updateIndicator(targets: DropTargetRecord[]): void {
       }
       return;
     }
-    const edge = extractClosestEdge(top.data);
-    const side: 'before' | 'after' = edge === 'right' ? 'after' : 'before';
+    const side = readSide(top.data);
     const cur = st.drag.indicator;
     if (!cur || cur.kind !== 'quick' || cur.targetId !== id || cur.side !== side) {
       st.setDrag({ indicator: { kind: 'quick', targetId: id, side }, dropFolderId: null, dropQuick: false });
@@ -355,8 +484,7 @@ function updateIndicator(targets: DropTargetRecord[]): void {
       }
       return;
     }
-    const edge = extractClosestEdge(top.data);
-    const side: 'before' | 'after' = edge === 'right' ? 'after' : 'before';
+    const side = readSide(top.data);
     const cur = st.drag.indicator;
     if (!cur || cur.kind !== d.kind || cur.targetId !== id || cur.side !== side) {
       st.setDrag({ indicator: { kind: d.kind, targetId: id, side }, dropFolderId: null, dropQuick: false });
@@ -369,7 +497,7 @@ function updateIndicator(targets: DropTargetRecord[]): void {
 }
 
 function handleDrop(source: DragSource, targets: DropTargetRecord[]): void {
-  const top = targets[0];
+  const top = pickTarget(targets, source.ids);
   if (!top) return;
   const st = useStore.getState();
   const d = top.data as AnyTargetData;
@@ -380,8 +508,7 @@ function handleDrop(source: DragSource, targets: DropTargetRecord[]): void {
       const id = (d as QuickTileTargetData).id;
       if (source.ids.includes(id)) return;
       const order = st.quickSites.map((q) => q.id);
-      const edge = extractClosestEdge(top.data);
-      const idx = dropInsertIndex(order, id, edge === 'right' ? 'after' : 'before', source.ids);
+      const idx = dropInsertIndex(order, id, readSide(top.data), source.ids);
       st.reorderQuick(reorderIds(order, source.ids, idx));
       return;
     }
@@ -418,8 +545,7 @@ function handleDrop(source: DragSource, targets: DropTargetRecord[]): void {
     const tabIds = source.ids.map(Number);
     if (d.kind === 'tab') {
       const order = st.tabs.map((t) => String(t.id));
-      const edge = extractClosestEdge(top.data);
-      const idx = dropInsertIndex(order, (d as SortTargetData).id, edge === 'right' ? 'after' : 'before', source.ids);
+      const idx = dropInsertIndex(order, (d as SortTargetData).id, readSide(top.data), source.ids);
       const desired = reorderIds(order, source.ids, idx).map(Number);
       void st.reorderTabs(desired);
       return;
@@ -450,8 +576,7 @@ function handleDrop(source: DragSource, targets: DropTargetRecord[]): void {
     const target = d as SortTargetData;
     if (!target.parentId) return;
     const order = childrenOf(st.bm, target.parentId).map((n) => n.id);
-    const edge = extractClosestEdge(top.data);
-    const idx = dropInsertIndex(order, target.id, edge === 'right' ? 'after' : 'before', source.ids);
+    const idx = dropInsertIndex(order, target.id, readSide(top.data), source.ids);
     if (source.parentId === target.parentId) {
       void st.reorderWithin(target.parentId, reorderIds(order, source.ids, idx));
     } else {

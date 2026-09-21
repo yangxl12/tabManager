@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useStore, useT } from '@/store';
 import { EmptyTabsArt, IconHelp, IconX } from './icons';
 import { TabCard } from './TabCard';
-import { useAutoScroll, usePaneTarget } from '@/dnd/dnd';
+import { domCells, useAutoScroll, usePaneTarget } from '@/dnd/dnd';
 
 export function TabPanel() {
   const t = useT();
@@ -13,6 +13,7 @@ export function TabPanel() {
   const closeTabsByIds = useStore((s) => s.closeTabsByIds);
   const toggleHelp = useStore((s) => s.toggleHelp);
   const gridRef = useRef<HTMLDivElement>(null);
+  const paneRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
 
   const entering = firstRender.current;
@@ -21,11 +22,17 @@ export function TabPanel() {
   const list = tabs;
   const selCount = selected.length;
 
-  usePaneTarget({ elementRef: gridRef, scope: 'tab' });
+  // 落点挂在整块面板上（不只网格）：第一列左侧、第一行上方那几像素也在网格外，
+  // 只认网格的话拖到「第一个位置」的边上会完全没反应
+  usePaneTarget({
+    elementRef: paneRef,
+    scope: 'tab',
+    getCells: () => domCells(gridRef.current, '[data-tab-card]', 'data-tab-card', null),
+  });
   useAutoScroll(gridRef);
 
   return (
-    <div className="pane-tabs">
+    <div className="pane-tabs" ref={paneRef}>
       <div className="sec-head">
         <div className="sec-title">{t('tabs.title')}</div>
         {selCount > 0 ? (

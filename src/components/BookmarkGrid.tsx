@@ -4,7 +4,7 @@ import { childrenOf, countOf, pathOf } from '@/lib/bookmarkTree';
 import { EmptyBmsArt, IconFolder, IconGlobe, IconPlus, IconSearch, IconUpload } from './icons';
 import { BookmarkCard } from './BookmarkCard';
 import { ThemeMenu } from './ThemeMenu';
-import { useAutoScroll, useExternalFileTarget, useFolderTarget, usePaneTarget } from '@/dnd/dnd';
+import { domCells, useAutoScroll, useExternalFileTarget, useFolderTarget, usePaneTarget } from '@/dnd/dnd';
 
 /** 界面语言切换：地球图标，点击 zh / en 互切（真源在 uiSlice.lang） */
 function LangToggle() {
@@ -82,7 +82,12 @@ export function BookmarkGrid({
   const entering = firstRender.current && list.length > 0;
   if (entering) firstRender.current = false;
 
-  usePaneTarget({ elementRef: paneRef, scope: 'bookmark' });
+  usePaneTarget({
+    elementRef: paneRef,
+    scope: 'bookmark',
+    // 面板空白（卡片缝 / 第一行上方）也算排序落点：取最近卡片，别一律扔到末尾
+    getCells: () => domCells(gridRef.current, '[data-bm-card]', 'data-bm-card', currentFolder),
+  });
   useExternalFileTarget({ elementRef: paneRef, onFiles });
   useAutoScroll(gridRef);
 
