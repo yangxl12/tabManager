@@ -1828,13 +1828,18 @@ kbd {
    开合只动外层宽度：内容层 .note-inner 固定宽，动画期间不回流；
    收起时 visibility 延迟到动画结束再隐藏，形成「滑入 / 滑出」。
    宽度进 inline 的 --note-w（自定义属性），窄屏媒体查询才能盖掉宽度做底部抽屉。
+   外层只是「拖拽条 + 内容」的容器，不画面板底色 —— 面板样式在 .note-inner 上，
+   拖拽条那 13px 才是真间隔，与标签面板 / 书签面板之间的 .splitter 完全一致。
    ============================================================ */
 .note-pane {
   --sec: var(--color-amber);
   --sec-soft: var(--color-amber-soft);
   flex: none;
+  display: flex;
+  align-items: stretch;
   width: 0;
   min-width: 0;
+  overflow: hidden;
   visibility: hidden;
   transition:
     width 0.26s var(--ease-nest),

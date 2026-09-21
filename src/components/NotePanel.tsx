@@ -207,7 +207,7 @@ export function NotePanel() {
 
   return (
     <aside
-      className={`panel note-pane${noteOpen ? ' is-open' : ''}`}
+      className={`note-pane${noteOpen ? ' is-open' : ''}`}
       style={{ '--note-w': `${noteWidth}px` } as React.CSSProperties}
       aria-label={t('note.title')}
     >
@@ -217,7 +217,7 @@ export function NotePanel() {
         title={t('split.title')}
       />
 
-      <div className="note-inner">
+      <div className="panel note-inner">
         <div className="note-head">
           <div className="sec-title note-title">
             <IconNote size={13} />
