@@ -16,7 +16,8 @@ interface Props {
 
 /**
  * 站点图标：真实 favicon 优先，取不到（onError / 内部页 / Chrome 默认灰地球）降级为首字母。
- * 无底色 —— 图标下方不垫色块，字母兜底靠站点色字色区分。
+ * 底色由 --tile-bg 统一控制：明亮模式不垫底（图标直接落在卡片底色上），
+ * 暗黑模式垫一层浅底 —— 深色站点的 logo 在暗底上会糊成一片，必须托一下。
  */
 export const Tile = memo(function Tile({ url, seed, size, className }: Props) {
   const [failed, setFailed] = useState(false);

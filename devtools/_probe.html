@@ -597,6 +597,29 @@
               '快捷图标不垫底色',
               W.getComputedStyle($('.quick-tile__ic')).backgroundColor,
             );
+
+            // 暗色：图标统一垫一层浅底（--tile-bg），近黑 logo 在暗底上才看得清
+            {
+              const root = D.documentElement;
+              const prev = root.dataset.theme;
+              root.dataset.theme = 'dark';
+              const lum = (c) => {
+                const m = String(c).match(/\d+/g);
+                return m ? Number(m[0]) : 0;
+              };
+              const dTile = W.getComputedStyle($('.tile')).backgroundColor;
+              const dQuick = W.getComputedStyle($('.quick-tile__ic')).backgroundColor;
+              log(lum(dTile) >= 180, '暗色下站点图标垫浅底', dTile);
+              log(lum(dQuick) >= 180, '暗色下快捷图标垫浅底', dQuick);
+              log(
+                W.getComputedStyle($('.quick-tile--add .quick-tile__ic')).backgroundColor ===
+                  'rgba(0, 0, 0, 0)',
+                '暗色下「新增」磁贴仍不垫底（保留虚线框）',
+                W.getComputedStyle($('.quick-tile--add .quick-tile__ic')).backgroundColor,
+              );
+              if (prev === undefined) delete root.dataset.theme;
+              else root.dataset.theme = prev;
+            }
           }
 
           /* ---------- 快捷站点磁贴「三个点」菜单 ---------- */

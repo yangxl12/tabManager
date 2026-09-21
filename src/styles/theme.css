@@ -57,6 +57,8 @@
   --color-on-acc: #ffffff;
   --color-mask: rgba(30, 25, 18, 0.34);
   --color-mark: #ffe9a8;
+  /* 站点图标底：明亮模式不垫底，图标直接落在卡片底色上 */
+  --tile-bg: transparent;
 }
 
 /* ============================================================
@@ -106,6 +108,9 @@
     --color-on-acc: #14120f;
     --color-mask: rgba(0, 0, 0, 0.6);
     --color-mark: #453412;
+
+    /* 暗底上的深色站点图标（近黑 logo）会糊成一片 → 统一垫一层浅底 */
+    --tile-bg: var(--color-ink);
   }
 }
 
@@ -142,6 +147,9 @@ html[data-theme='dark'] {
   --color-on-acc: #14120f;
   --color-mask: rgba(0, 0, 0, 0.6);
   --color-mark: #453412;
+
+  /* 暗底上的深色站点图标（近黑 logo）会糊成一片 → 统一垫一层浅底 */
+  --tile-bg: var(--color-ink);
 }
 
 /* 「新建」这类实心深色按钮：暗色下反相，hover 再亮一档 */
@@ -688,7 +696,7 @@ textarea {
   color: var(--c);
   font-size: calc(var(--tile-size, 30px) * 0.44);
   font-weight: 700;
-  background: none;
+  background: var(--tile-bg);
   overflow: hidden;
 }
 .tile img {
