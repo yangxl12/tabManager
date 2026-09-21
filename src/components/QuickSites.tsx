@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore, useT } from '@/store';
-import { colorFor, firstChar } from '@/lib/colors';
+import { colorFor } from '@/lib/colors';
 import { hostOf, normalizeUrl } from '@/lib/url';
 import { IconPencil, IconTrash } from './icons';
 import { RowMenu } from './RowMenu';
+import { Tile } from './Tile';
 import { useCardDrag, useQuickSortTarget, useQuickTarget } from '@/dnd/dnd';
 import type { QuickSite } from '@/lib/types';
 
@@ -82,9 +83,7 @@ const QuickTile = memo(function QuickTile({
       title={`${site.name} · ${hostOf(site.url)}`}
       onClick={() => void openTab(site.url)}
     >
-      <span className="quick-tile__ic" style={{ ['--c' as string]: color }}>
-        {firstChar(site.name)}
-      </span>
+      <Tile url={site.url} seed={site.name} size={42} className="quick-tile__ic" />
       <span className="quick-tile__nm">{site.name}</span>
       <RowMenu
         marker={site.id}

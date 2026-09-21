@@ -586,6 +586,17 @@
               '快捷站点磁贴变大（图标 ≥40px）',
               W.getComputedStyle($('.quick-tile__ic')).width,
             );
+            // 回归基准：图标曾经是彩色底块（background: var(--c)），视觉太花 —— 现在不垫底色
+            log(
+              W.getComputedStyle($('.tile')).backgroundColor === 'rgba(0, 0, 0, 0)',
+              '站点图标不垫底色（标签 / 书签卡片）',
+              W.getComputedStyle($('.tile')).backgroundColor,
+            );
+            log(
+              W.getComputedStyle($('.quick-tile__ic')).backgroundColor === 'rgba(0, 0, 0, 0)',
+              '快捷图标不垫底色',
+              W.getComputedStyle($('.quick-tile__ic')).backgroundColor,
+            );
           }
 
           /* ---------- 快捷站点磁贴「三个点」菜单 ---------- */

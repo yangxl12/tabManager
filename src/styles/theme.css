@@ -471,11 +471,6 @@ textarea {
   display: grid;
   place-items: center;
   flex: none;
-  color: #fff;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  background: var(--c);
 }
 .quick-tile__nm {
   font-size: 12px;
@@ -682,24 +677,24 @@ textarea {
 .tab-card .xbtn:hover {
   opacity: 1;
 }
+/* 图标不垫底色：真实 favicon 直接落在卡片底色上，取不到时退首字母（字色 = 站点色） */
 .tile {
-  width: 30px;
-  height: 30px;
+  width: var(--tile-size, 30px);
+  height: var(--tile-size, 30px);
   border-radius: 8px;
   display: grid;
   place-items: center;
   flex: none;
-  color: #fff;
-  font-size: 13px;
+  color: var(--c);
+  font-size: calc(var(--tile-size, 30px) * 0.44);
   font-weight: 700;
-  background: var(--c);
+  background: none;
   overflow: hidden;
 }
 .tile img {
-  width: 19px;
-  height: 19px;
+  width: 72%;
+  height: 72%;
   object-fit: contain;
-  border-radius: 3px;
 }
 .pick {
   width: 17px;
@@ -1744,10 +1739,6 @@ kbd {
   height: 24px;
   border-radius: 6px;
   font-size: 11px;
-}
-.bmsearch__item .tile img {
-  width: 15px;
-  height: 15px;
 }
 .bmsearch__folderic {
   width: 24px;
