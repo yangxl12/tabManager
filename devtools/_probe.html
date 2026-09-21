@@ -1109,6 +1109,124 @@
             }
           }
 
+          /* ---------- 快捷磁贴拖拽排序 ---------- */
+          {
+            const Q = () => W.__tabnest.getState().quickSites;
+            const tileIds = () => $$('[data-quick-tile]').map((el) => el.getAttribute('data-quick-tile'));
+            const tile = (id) => $(`[data-quick-tile="${id}"]`);
+            const storeIds = () => Q().map((s) => s.id);
+
+            log(tileIds().length >= 3, '快捷排序前置：磁贴充足', tileIds().join());
+            log(tile(tileIds()[0]).getAttribute('draggable') === 'true', '快捷磁贴注册为拖拽源');
+            log(
+              tile(tileIds()[0]).hasAttribute('data-drop-target-for-element'),
+              '快捷磁贴注册为排序落点',
+            );
+
+            // 拖到目标磁贴左半区 = 插到它前面；顺带看拖拽中的视觉反馈
+            {
+              const before = tileIds();
+              const g = dragSteps(tile(before[0]), tile(before[2]), 0.15);
+              g.start();
+              g.over();
+              await sleep(240);
+              log(tile(before[0]).classList.contains('dragging'), '拖拽中的磁贴原位半透明');
+              log(
+                tile(before[2]).classList.contains('drop-b'),
+                '落点磁贴显示左侧插入线',
+                tile(before[2]).className,
+              );
+              log(
+                !$('.pane-quick.is-drop') && !$('.pane-quick .drop-hint'),
+                '拖磁贴时不显示「松手加入」提示条',
+              );
+              g.drop();
+              await sleep(420);
+
+              const after = tileIds();
+              const want = [before[1], before[0], before[2], ...before.slice(3)];
+              log(
+                after.join() === want.join(),
+                '拖磁贴到左半区 → 磁贴顺序更新',
+                `${before.slice(0, 3).join()} → ${after.slice(0, 3).join()}`,
+              );
+              log(storeIds().join() === want.join(), '排序结果已写回 store', storeIds().slice(0, 3).join());
+              log(
+                !$('.quick-tile.dragging') && !$('.quick-tile.drop-b') && !$('.quick-tile.drop-a'),
+                '拖拽结束后磁贴高亮与插入线全部清除',
+              );
+            }
+
+            // 拖到目标磁贴右半区 = 插到它后面
+            {
+              const before = tileIds();
+              nativeDrag(tile(before[0]), tile(before[1]), 0.85);
+              await sleep(650);
+              const after = tileIds();
+              const want = [before[1], before[0], ...before.slice(2)];
+              log(
+                after.join() === want.join(),
+                '拖磁贴到右半区 → 插到该磁贴之后',
+                `${before.slice(0, 2).join()} → ${after.slice(0, 2).join()}`,
+              );
+            }
+
+            // 拖到本区空白（磁贴缝 / 最后一行空位）= 挪到末尾。
+            // 注：无头合成事件下 pdnd 的 onDragStart 是延迟到 dragover 之后才跑，
+            // drop 时拿不到行进中的落点表，所以这里只验「空白区认快捷磁贴为落点」，
+            // 真正的落位结果用下一条「拖到末位磁贴右半区」来验（等价于插到最后）。
+            {
+              const g = dragSteps(tile(tileIds()[0]), $('.pane-quick'), 0.5);
+              let recognized = false;
+              const onOver = (e) => {
+                if (e.target === $('.pane-quick') && e.defaultPrevented) recognized = true;
+              };
+              W.document.addEventListener('dragover', onOver);
+              g.start();
+              g.over();
+              await sleep(200);
+              log(
+                recognized,
+                '快捷访问区空白也认快捷磁贴为落点（拖到这里 = 挪到末尾）',
+                `prevented=${recognized}`,
+              );
+              g.drop();
+              await sleep(320);
+              W.document.removeEventListener('dragover', onOver);
+            }
+
+            // 拖到末位磁贴右半区 → 挪到末尾
+            {
+              const before = tileIds();
+              const last = before[before.length - 1];
+              nativeDrag(tile(before[0]), tile(last), 0.9);
+              await sleep(650);
+              const after = tileIds();
+              const want = [...before.slice(1), before[0]];
+              log(
+                after.join() === want.join(),
+                '拖到末位磁贴右半区 → 挪到末尾',
+                `期望 ${want.slice(-2).join()} / 实际 ${after.slice(-2).join()}`,
+              );
+            }
+
+            // 串台防护：磁贴的 id 是 'q-xxx'，绝不能被当成书签 id 塞进书签树
+            {
+              const ids0 = tileIds();
+              const bm0 = $$('[data-bm-card]').length;
+              const nodes0 = Object.keys(W.__tabnest.getState().bm.nodes).length;
+              nativeDrag(tile(ids0[0]), $$('[data-bm-card]')[0], 0.85);
+              await sleep(650);
+              log(
+                tileIds().join() === ids0.join() &&
+                  $$('[data-bm-card]').length === bm0 &&
+                  Object.keys(W.__tabnest.getState().bm.nodes).length === nodes0,
+                '快捷磁贴拖到书签网格 → 两边都不受影响',
+                `磁贴 ${tileIds().length} / 书签 ${$$('[data-bm-card]').length}`,
+              );
+            }
+          }
+
           /* ---------- 跨存储搬运（回归：账号书签与此设备书签曾禁止互移） ---------- */
           {
             const st = W.__tabnest.getState();

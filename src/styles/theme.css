@@ -497,6 +497,26 @@ textarea {
   border-color: var(--sec);
   color: var(--sec);
 }
+/* 拖拽排序：沿用标签 / 书签卡片的语言 —— 原位半透明 + 竖向插入线（用本区琥珀色） */
+.quick-tile.dragging {
+  opacity: 0.34;
+}
+.quick-tile.drop-b::before,
+.quick-tile.drop-a::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--sec);
+}
+.quick-tile.drop-b::before {
+  left: -4px;
+}
+.quick-tile.drop-a::after {
+  right: -4px;
+}
 .quick-form {
   display: grid;
   grid-template-columns: 1fr 1.4fr auto;

@@ -16,14 +16,15 @@ export interface ToastInput {
 
 export interface DragState {
   active: boolean;
-  kind: 'tab' | 'bookmark' | 'file' | null;
+  /** quick = 快捷磁贴（只在本区内排序）；file = 外部文件拖入 */
+  kind: 'tab' | 'bookmark' | 'quick' | 'file' | null;
   /** 被拖拽项 id（字符串化，多选时为整组） */
   ids: string[];
   /**
    * 排序指示：命中卡片 + 落在左/右半区。
-   * 必须带 kind —— 标签 id 是数字、书签 id 是数字字符串，只看 id 会串台。
+   * 必须带 kind —— 标签 id 是数字、书签 id 是数字字符串、快捷 id 是 'q-xxx'，只看 id 会串台。
    */
-  indicator: { kind: 'tab' | 'bookmark'; targetId: string; side: 'before' | 'after' } | null;
+  indicator: { kind: 'tab' | 'bookmark' | 'quick'; targetId: string; side: 'before' | 'after' } | null;
   /** 高亮的文件夹（树行 / 子文件夹 chip） */
   dropFolderId: string | null;
   /** 当前指针落在哪个面板的空区上（标签面板 / 书签面板），null 表示没有 */

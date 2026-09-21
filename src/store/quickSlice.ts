@@ -24,6 +24,8 @@ export interface QuickSlice {
   addQuickSites: (items: Array<{ name: string; url: string }>) => void;
   updateQuick: (id: string, name: string, url: string) => void;
   removeQuick: (id: string) => void;
+  /** 拖拽排序：传「重排后的完整 id 顺序」，未列出的条目按原相对顺序追加在后 */
+  reorderQuick: (desired: string[]) => void;
   initQuick: () => Promise<void>;
 }
 
@@ -72,6 +74,28 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
   removeQuick(id) {
     set((s) => {
       s.quickSites = s.quickSites.filter((q) => q.id !== id);
+    });
+    void setLocal(KEYS.quickSites, get().quickSites);
+  },
+
+  reorderQuick(desired) {
+    const byId = new Map(get().quickSites.map((q) => [q.id, q]));
+    const next: QuickSite[] = [];
+    const used = new Set<string>();
+    for (const id of desired) {
+      const item = byId.get(id);
+      if (item && !used.has(id)) {
+        used.add(id);
+        next.push(item);
+      }
+    }
+    // 兜底：desired 没覆盖到的（并发写入 / 脏顺序）按原顺序补在后面，绝不丢条目
+    for (const q of get().quickSites) {
+      if (!used.has(q.id)) next.push(q);
+    }
+    if (next.length !== get().quickSites.length) return;
+    set((s) => {
+      s.quickSites = next;
     });
     void setLocal(KEYS.quickSites, get().quickSites);
   },

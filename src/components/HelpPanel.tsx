@@ -11,6 +11,7 @@ const ROWS: Array<{ label: I18nKey; hint?: I18nKey; keys: string[] }> = [
   { label: 'help.search', hint: 'help.searchHint', keys: ['Ctrl', 'K'] },
   { label: 'help.dragToBm', hint: 'help.dragToBmHint', keys: ['Drag'] },
   { label: 'help.dragCards', hint: 'help.dragCardsHint', keys: ['Drag'] },
+  { label: 'help.dragQuick', hint: 'help.dragQuickHint', keys: ['Drag'] },
   { label: 'help.ctrlMulti', hint: 'help.ctrlMultiHint', keys: ['Ctrl'] },
 ];
 

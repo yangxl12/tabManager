@@ -126,6 +126,8 @@ const zh = {
   'help.dragToBmHint': '加入书签',
   'help.dragCards': '拖拽卡片 / 文件夹',
   'help.dragCardsHint': '排序 · 归入文件夹',
+  'help.dragQuick': '拖拽快捷磁贴',
+  'help.dragQuickHint': '调整顺序',
   'help.ctrlMulti': '按住 Ctrl 点击标签卡片',
   'help.ctrlMultiHint': '多选后整组排序',
 
@@ -286,6 +288,8 @@ const en: Record<I18nKey, string> = {
   'help.dragToBmHint': 'to bookmark',
   'help.dragCards': 'Drag cards / folders',
   'help.dragCardsHint': 'reorder \u00b7 file into folders',
+  'help.dragQuick': 'Drag quick tiles',
+  'help.dragQuickHint': 'reorder',
   'help.ctrlMulti': 'Ctrl-click tab cards',
   'help.ctrlMultiHint': 'reorder as a group',
 
