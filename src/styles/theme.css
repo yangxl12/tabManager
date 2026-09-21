@@ -1272,10 +1272,26 @@ textarea {
 /* ============================================================
    Splitter
    ============================================================ */
+/* 拖拽光标：系统内置的 col-resize 会跟随**操作系统**主题渲染成纯白 / 纯黑两份，
+   系统是暗色、TabNest 用明亮主题时，光标就是一根白箭头压在米白底上 —— 直接看不见。
+   所以自带一个双色箭头（实心 + 对比描边），底色怎么变都认得出：
+   浅色下深芯 + 白边，暗色下白芯 + 深边。跟随 TabNest 主题而不是系统主题。
+   两份暗色声明照旧保持逐字一致（见上方「暗色主题」说明）。 */
+:root {
+  --cur-resize: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%232b2620'%20stroke='%23ffffff'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M2%2012L9%207L9%2017Z'/%3E%3Cpath%20d='M22%2012L15%207L15%2017Z'/%3E%3Crect%20x='10.8'%20y='6.5'%20width='2.4'%20height='11'%20rx='0.6'/%3E%3C/g%3E%3C/svg%3E") 12 12;
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme-mode='light']) {
+    --cur-resize: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M2%2012L9%207L9%2017Z'/%3E%3Cpath%20d='M22%2012L15%207L15%2017Z'/%3E%3Crect%20x='10.8'%20y='6.5'%20width='2.4'%20height='11'%20rx='0.6'/%3E%3C/g%3E%3C/svg%3E") 12 12;
+  }
+}
+html[data-theme='dark'] {
+  --cur-resize: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M2%2012L9%207L9%2017Z'/%3E%3Cpath%20d='M22%2012L15%207L15%2017Z'/%3E%3Crect%20x='10.8'%20y='6.5'%20width='2.4'%20height='11'%20rx='0.6'/%3E%3C/g%3E%3C/svg%3E") 12 12;
+}
 .splitter {
   width: 13px;
   flex: none;
-  cursor: col-resize;
+  cursor: var(--cur-resize), col-resize;
   display: grid;
   place-items: center;
   position: relative;
@@ -1294,7 +1310,7 @@ textarea {
   background: var(--color-jade);
 }
 body.resizing {
-  cursor: col-resize;
+  cursor: var(--cur-resize), col-resize;
 }
 body.resizing * {
   user-select: none !important;
