@@ -109,6 +109,21 @@ const zh = {
   'search.results': '{n} 个结果',
   'search.count': '{n} 个书签',
 
+  // 便签面板
+  'note.btn': '便签',
+  'note.title': '便签',
+  'note.ph': '随手记：待办、想法、容易忘的事…',
+  'note.h1': '标题 1',
+  'note.h2': '标题 2',
+  'note.bold': '加粗（Ctrl+B）',
+  'note.strike': '删除线',
+  'note.ul': '无序列表',
+  'note.ol': '有序列表',
+  'note.collapse': '收起便签',
+  'note.saved': '已保存',
+  'note.saving': '保存中…',
+  'note.count': '{n} 字',
+
   // 帮助面板
   'help.title': '快捷键与操作',
   'help.undo': '撤回删除',
@@ -271,6 +286,20 @@ const en: Record<I18nKey, string> = {
   'search.keys': '\u2191\u2193 navigate \u00b7 Enter open \u00b7 Esc close',
   'search.results': '{n} results',
   'search.count': '{n} bookmarks',
+
+  'note.btn': 'Notes',
+  'note.title': 'Notes',
+  'note.ph': 'Jot down todos, ideas, things you keep forgetting…',
+  'note.h1': 'Heading 1',
+  'note.h2': 'Heading 2',
+  'note.bold': 'Bold (Ctrl+B)',
+  'note.strike': 'Strikethrough',
+  'note.ul': 'Bullet list',
+  'note.ol': 'Numbered list',
+  'note.collapse': 'Collapse notes',
+  'note.saved': 'Saved',
+  'note.saving': 'Saving…',
+  'note.count': '{n} chars',
 
   'help.title': 'Shortcuts & actions',
   'help.undo': 'Undo delete',

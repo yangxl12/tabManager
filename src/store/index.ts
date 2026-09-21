@@ -3,11 +3,13 @@ import { immer } from 'zustand/middleware/immer';
 import { KEYS, subscribeLocal } from '@/services/storage';
 import { normalizeTheme } from '@/lib/theme';
 import { normalizeLang, setLangMirror, t } from '@/lib/i18n';
+import { normalizeNoteWidth } from '@/lib/noteMirror';
 import type { QuickSite } from '@/lib/types';
 import { createBookmarksSlice, type BookmarksSlice } from './bookmarksSlice';
 import { createQuickSlice, type QuickSlice } from './quickSlice';
 import { createTabsSlice, type TabsSlice } from './tabsSlice';
 import { createUiSlice, type UiSlice } from './uiSlice';
+import { createNotesSlice, type NotesSlice } from './notesSlice';
 
 /** 组件里的 t()：订阅 s.lang，切语言时触发重渲染（非 React 代码直接用 lib/i18n 的 t） */
 export function useT() {
@@ -15,7 +17,7 @@ export function useT() {
   return t;
 }
 
-export type Store = UiSlice & TabsSlice & BookmarksSlice & QuickSlice;
+export type Store = UiSlice & TabsSlice & BookmarksSlice & QuickSlice & NotesSlice;
 
 export const useStore = create<Store>()(
   immer((...a) => ({
@@ -23,6 +25,7 @@ export const useStore = create<Store>()(
     ...createTabsSlice(...a),
     ...createBookmarksSlice(...a),
     ...createQuickSlice(...a),
+    ...createNotesSlice(...a),
   })),
 );
 
@@ -38,7 +41,7 @@ export async function bootstrapStore(): Promise<void> {
   if (booted) return;
   booted = true;
   const s = useStore.getState();
-  await Promise.all([s.initUi(), s.initQuick()]);
+  await Promise.all([s.initUi(), s.initQuick(), s.initNotes()]);
   await Promise.all([s.initTabs(), s.initBookmarks()]);
 
   // 多开新标签页时保持同步
@@ -63,6 +66,19 @@ export async function bootstrapStore(): Promise<void> {
       const next = normalizeLang(changes[KEYS.lang].newValue);
       useStore.setState((st) => void (st.lang = next));
       setLangMirror(next);
+    }
+    // 便签面板：多开新标签页时保持开合 / 宽度 / 内容同步
+    if (changes[KEYS.noteOpen]) {
+      const next = changes[KEYS.noteOpen].newValue as boolean | undefined;
+      if (typeof next === 'boolean') useStore.setState((st) => void (st.noteOpen = next));
+    }
+    if (changes[KEYS.noteWidth]) {
+      const next = normalizeNoteWidth(changes[KEYS.noteWidth].newValue, NaN);
+      if (Number.isFinite(next)) useStore.setState((st) => void (st.noteWidth = next));
+    }
+    if (changes[KEYS.note]) {
+      const next = changes[KEYS.note].newValue as string | undefined;
+      if (typeof next === 'string') useStore.setState((st) => void (st.noteHtml = next));
     }
   });
 }

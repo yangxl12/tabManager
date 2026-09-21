@@ -516,6 +516,91 @@
             }
           }
 
+          /* ---------- 便签面板 ---------- */
+          {
+            const noteBtn = () =>
+              $$('.pane-main .sec-ops .btn').find((b) => b.textContent.includes('便签'));
+            const stN = () => W.__tabnest.getState();
+
+            log(!!noteBtn(), '书签工具条出现「便签」按钮');
+            log(
+              $$('.note-tool').length === 6,
+              '工具条 6 个格式按钮（标题×2 加粗 删除线 列表×2）',
+              `实际 ${$$('.note-tool').length}`,
+            );
+
+            // 开合：按当前状态取反断言，别假设首屏一定是收起（上次展开会被记住）
+            const before = stN().noteOpen;
+            noteBtn().click();
+            await sleep(600);
+            log(stN().noteOpen === !before, '点击「便签」切换面板开合');
+            if (!stN().noteOpen) {
+              noteBtn().click();
+              await sleep(600);
+            }
+            log(
+              !!$('.note-pane.is-open') && !!$('.note-editor'),
+              '面板展开且渲染富文本编辑区',
+              `is-open=${!!$('.note-pane.is-open')} editor=${!!$('.note-editor')}`,
+            );
+
+            // 输入 → 防抖后落库
+            const ed = $('.note-editor');
+            ed.focus();
+            D.execCommand('selectAll', false, null);
+            D.execCommand('insertText', false, '便签回归内容');
+            await sleep(1000);
+            log(
+              stN().noteHtml.includes('便签回归内容'),
+              '输入内容防抖后写入 store',
+              `noteHtml=${stN().noteHtml.slice(0, 60)}`,
+            );
+            log(ed.dataset.empty === 'false', '有内容后占位提示隐藏');
+            log(
+              !!$('.note-foot .note-count') && /\d/.test($('.note-count').textContent),
+              '底栏实时显示字数',
+              $('.note-count') ? $('.note-count').textContent : '',
+            );
+
+            // 工具条：mousedown 执行（preventDefault 保住选区）
+            const toolByText = (x) => $$('.note-tool').find((b) => b.textContent.trim() === x);
+            D.execCommand('selectAll', false, null);
+            toolByText('B').dispatchEvent(
+              new W.MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+            );
+            await sleep(900);
+            log(
+              /<(b|strong)[\s>]/i.test(stN().noteHtml),
+              '工具条「加粗」生效并持久化',
+              stN().noteHtml.slice(0, 80),
+            );
+
+            D.execCommand('selectAll', false, null);
+            $('.note-tool[title="无序列表"]').dispatchEvent(
+              new W.MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+            );
+            await sleep(900);
+            log(/<ul[\s>]/i.test(stN().noteHtml), '工具条「无序列表」生效并持久化');
+
+            // 收起 → 再展开：面板不卸载，内容不丢
+            $('.note-collapse').click();
+            await sleep(200);
+            log(stN().noteOpen === false, '收起按钮把面板置为收起态');
+            noteBtn().click();
+            await sleep(500);
+            log(
+              stN().noteOpen === true &&
+                $('.note-editor').textContent.includes('便签回归内容'),
+              '收起再展开，内容不丢',
+            );
+
+            // 收尾：保持收起，别影响下次跑探针的状态
+            if (stN().noteOpen) {
+              $('.note-collapse').click();
+              await sleep(500);
+            }
+          }
+
           /* ---------- 文件夹 ---------- */
           $('[data-tree-row="1"] .tree-caret').click();
           await sleep(250);

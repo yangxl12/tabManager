@@ -1823,6 +1823,237 @@ kbd {
   display: none !important;
 }
 
+/* ============================================================
+   便签面板（右侧抽屉）
+   开合只动外层宽度：内容层 .note-inner 固定宽，动画期间不回流；
+   收起时 visibility 延迟到动画结束再隐藏，形成「滑入 / 滑出」。
+   宽度进 inline 的 --note-w（自定义属性），窄屏媒体查询才能盖掉宽度做底部抽屉。
+   ============================================================ */
+.note-pane {
+  --sec: var(--color-amber);
+  --sec-soft: var(--color-amber-soft);
+  flex: none;
+  width: 0;
+  min-width: 0;
+  visibility: hidden;
+  transition:
+    width 0.26s var(--ease-nest),
+    visibility 0s 0.26s;
+}
+.note-pane.is-open {
+  visibility: visible;
+  width: calc(13px + var(--note-w, 340px));
+  transition:
+    width 0.26s var(--ease-nest),
+    visibility 0s 0s;
+}
+/* 拖宽度时禁用过渡（body.resizing 由拖拽逻辑挂上），否则完全不跟手 */
+body.resizing .note-pane {
+  transition: none;
+}
+.note-pane > .splitter {
+  align-self: stretch;
+}
+.note-inner {
+  width: var(--note-w, 340px);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 15px 15px 12px;
+}
+.note-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 11px;
+  min-height: 28px;
+}
+.note-collapse {
+  margin-left: auto;
+  width: 28px;
+  height: 26px;
+  flex: none;
+}
+
+/* 工具条：H1 H2 · B S · 无序 / 有序列表（mousedown 执行，不抢编辑器选区） */
+.note-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 7px;
+  margin-bottom: 10px;
+  background: var(--color-panel-soft);
+  border-radius: 10px;
+}
+.note-tool {
+  min-width: 30px;
+  height: 25px;
+  padding: 0 7px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted);
+  transition: 0.14s var(--ease-nest);
+}
+.note-tool:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+.note-tool.on {
+  background: var(--color-amber-soft);
+  color: var(--color-amber);
+}
+.note-tool__t {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.note-tool__t--b {
+  font-weight: 800;
+}
+.note-tool__t--s {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+.note-tools__sep {
+  width: 1px;
+  height: 14px;
+  background: var(--color-line);
+  margin: 0 4px;
+  flex: none;
+}
+
+/* 编辑区 */
+.note-body {
+  flex: 1;
+  min-height: 0;
+}
+.note-editor {
+  position: relative;
+  min-height: 120px;
+  outline: none;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-ink);
+  padding: 2px 2px 10px;
+  word-break: break-word;
+  caret-color: var(--color-amber);
+}
+/* 占位提示走 data-empty：内容里只剩 <br> 时 :empty 匹配不上 */
+.note-editor[data-empty='true']::before {
+  content: attr(data-ph);
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  color: var(--color-faint);
+  pointer-events: none;
+}
+.note-editor p {
+  margin: 3px 0;
+}
+.note-editor h1,
+.note-editor h2 {
+  line-height: 1.4;
+  margin: 10px 0 4px;
+}
+.note-editor h1 {
+  font-size: 16.5px;
+  font-weight: 700;
+}
+.note-editor h2 {
+  font-size: 14.5px;
+  font-weight: 650;
+}
+.note-editor h1:first-child,
+.note-editor h2:first-child,
+.note-editor p:first-child {
+  margin-top: 0;
+}
+.note-editor ul,
+.note-editor ol {
+  margin: 4px 0;
+  padding-left: 21px;
+}
+.note-editor li {
+  margin: 2px 0;
+}
+.note-editor li::marker {
+  color: var(--color-amber);
+}
+.note-editor b,
+.note-editor strong {
+  font-weight: 680;
+}
+.note-editor a {
+  color: var(--color-blue);
+}
+
+/* 底栏：保存状态 + 字数 */
+.note-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 1px solid var(--color-line-2);
+  font-size: 11px;
+  color: var(--color-faint);
+}
+.note-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-jade);
+  flex: none;
+  transition: background 0.2s var(--ease-nest);
+}
+.note-dot.busy {
+  background: var(--color-amber);
+}
+.note-save {
+  color: var(--color-muted);
+}
+.note-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 工具条入口按钮：面板展开时切本区主色（琥珀），与 .btn--sel 同一语义 */
+.pane-main .note-btn.is-on {
+  color: var(--color-amber);
+  background: var(--color-amber-soft);
+}
+
+/* 窄屏：主区变纵向，便签转为底部抽屉（只动高度，拖拽条收起） */
+@media (max-width: 1080px) {
+  .note-pane {
+    width: 100%;
+    height: 0;
+    transition:
+      height 0.26s var(--ease-nest),
+      visibility 0s 0.26s;
+  }
+  .note-pane.is-open {
+    width: 100%;
+    height: 36vh;
+    transition:
+      height 0.26s var(--ease-nest),
+      visibility 0s 0s;
+  }
+  .note-pane > .splitter {
+    display: none;
+  }
+  .note-inner {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 @media (max-width: 1080px) {
   .main {
     flex-direction: column;

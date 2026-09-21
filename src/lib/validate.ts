@@ -21,3 +21,8 @@ export function asNumber(v: unknown, fallback: number): number {
 export function asBool(v: unknown, fallback: boolean): boolean {
   return typeof v === 'boolean' ? v : fallback;
 }
+
+/** 只接受真正的 string，其余回落（数字 / null 都算非法） */
+export function asStr(v: unknown, fallback: string): string {
+  return typeof v === 'string' ? v : fallback;
+}

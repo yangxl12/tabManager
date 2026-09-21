@@ -172,6 +172,41 @@ export function IconGlobe({ size = 15, className }: IconProps) {
   );
 }
 
+/** 便签：右上折角的纸片 + 两条内容线 */
+export function IconNote({ size = 14, className }: IconProps) {
+  return (
+    <svg {...S(size)} strokeWidth={1.45} className={className}>
+      <path d="M4 2.9h5.1l4 4v5.2c0 .6-.5 1.1-1.1 1.1H4c-.6 0-1.1-.5-1.1-1.1V4c0-.6.5-1.1 1.1-1.1z" />
+      <path d="M9.1 2.9V6c0 .6.5 1.1 1.1 1.1h2.9" />
+      <path d="M5.3 9.1h5.4M5.3 11.4h3.2" />
+    </svg>
+  );
+}
+
+/** 便签工具条：无序列表 */
+export function IconListUl({ size = 14, className }: IconProps) {
+  return (
+    <svg {...S(size)} strokeWidth={1.5} className={className}>
+      <path d="M6.5 4.2h6.7M6.5 8h6.7M6.5 11.8h6.7" />
+      <circle cx="3.1" cy="4.2" r=".95" fill="currentColor" stroke="none" />
+      <circle cx="3.1" cy="8" r=".95" fill="currentColor" stroke="none" />
+      <circle cx="3.1" cy="11.8" r=".95" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** 便签工具条：有序列表（序号走 text，跟界面同一字体） */
+export function IconListOl({ size = 14, className }: IconProps) {
+  return (
+    <svg {...S(size)} strokeWidth={1.5} className={className}>
+      <path d="M6.5 4.2h6.7M6.5 8h6.7M6.5 11.8h6.7" />
+      <text x="2.9" y="6.1" fontSize="5.6" fill="currentColor" stroke="none" textAnchor="middle">1</text>
+      <text x="2.9" y="9.9" fontSize="5.6" fill="currentColor" stroke="none" textAnchor="middle">2</text>
+      <text x="2.9" y="13.7" fontSize="5.6" fill="currentColor" stroke="none" textAnchor="middle">3</text>
+    </svg>
+  );
+}
+
 export function IconBrand({ size = 24, className }: IconProps) {
   return (
     <svg

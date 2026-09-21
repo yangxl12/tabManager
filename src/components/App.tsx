@@ -11,6 +11,7 @@ import { BookmarkGrid } from './BookmarkGrid';
 import { BookmarkSearchModal } from './BookmarkSearchModal';
 import { ImportModal } from './ImportModal';
 import { HelpPanel } from './HelpPanel';
+import { NotePanel } from './NotePanel';
 import { useDndRoot } from '@/dnd/dnd';
 
 interface ImportState {
@@ -157,6 +158,9 @@ export function App() {
             onFiles={handleFiles}
           />
         </section>
+
+        {/* 便签抽屉：与左右两块同层，收起时宽度归零（组件不卸载） */}
+        <NotePanel />
       </div>
 
       <BookmarkSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />

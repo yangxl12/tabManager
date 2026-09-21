@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useStore, useT } from '@/store';
 import { childrenOf, countOf, pathOf } from '@/lib/bookmarkTree';
-import { EmptyBmsArt, IconFolder, IconGlobe, IconPlus, IconSearch, IconUpload } from './icons';
+import { EmptyBmsArt, IconFolder, IconGlobe, IconNote, IconPlus, IconSearch, IconUpload } from './icons';
 import { BookmarkCard } from './BookmarkCard';
 import { ThemeMenu } from './ThemeMenu';
 import { domCells, useAutoScroll, useExternalFileTarget, useFolderTarget, usePaneTarget } from '@/dnd/dnd';
@@ -65,6 +65,8 @@ export function BookmarkGrid({
   const paneReady = dropPane === 'bookmark' && dragKind === 'file';
   const paneHint = dropPane === 'bookmark' && dragKind !== 'file';
   const flashSeq = useStore((s) => s.flashSeq);
+  const noteOpen = useStore((s) => s.noteOpen);
+  const setNoteOpen = useStore((s) => s.setNoteOpen);
 
   const selectAllBms = useStore((s) => s.selectAllBms);
   const clearBmSel = useStore((s) => s.clearBmSel);
@@ -161,6 +163,13 @@ export function BookmarkGrid({
               </button>
               <button className="btn btn--sm" onClick={onOpenImport}>
                 <IconUpload size={12} /> {t('bm.import')}
+              </button>
+              <button
+                className={`btn btn--sm note-btn${noteOpen ? ' is-on' : ''}`}
+                title={noteOpen ? t('note.collapse') : t('note.btn')}
+                onClick={() => setNoteOpen(!noteOpen)}
+              >
+                <IconNote size={12} /> {t('note.btn')}
               </button>
             </>
           )}
