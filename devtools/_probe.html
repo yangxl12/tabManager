@@ -544,6 +544,48 @@
               `is-open=${!!$('.note-pane.is-open')} editor=${!!$('.note-editor')}`,
             );
 
+            /* 光标：便签模块整套自绘（token 见 theme.css 的 Splitter 段 / 便签面板段）。
+               系统方案在浅色外壳给的是「白芯 + 细黑边」，压在米白便签面板上糊成一片，
+               所以这里不跟系统走，只认当下的 TabNest 主题。 */
+            {
+              const curOf = (sel) => {
+                const el = $(sel);
+                return el ? W.getComputedStyle(el).cursor : '';
+              };
+              const darkMode = D.documentElement.dataset.theme === 'dark';
+              const core = darkMode ? '%23f2efe9' : '%232b2620';
+              const edCur = curOf('.note-editor');
+              log(
+                edCur.startsWith('url(') && edCur.includes(core) && curOf('.note-body').startsWith('url('),
+                '便签编辑区光标自绘文本光标（跟 TabNest 主题，不跟系统）',
+                edCur.slice(0, 32) + '…',
+              );
+              log(
+                curOf('.note-pane').startsWith('url(') &&
+                  curOf('.note-tool').startsWith('url(') &&
+                  curOf('.note-collapse').startsWith('url('),
+                '便签面板底色 / 按钮也是自绘光标（箭头 / 手）',
+                `pane=${curOf('.note-pane').slice(0, 18)}… tool=${curOf('.note-tool').slice(0, 18)}…`,
+              );
+              // 编辑层铺满正文区：否则只有顶上 120px 是文本光标，底下空白鼠标移进去又换一种
+              const eb = $('.note-body').getBoundingClientRect();
+              const er = $('.note-editor').getBoundingClientRect();
+              log(
+                er.height >= eb.height - 1,
+                '编辑层铺满便签正文区（光标不会中途换样式）',
+                `${Math.round(er.height)} / ${Math.round(eb.height)}`,
+              );
+              // 输入光标色跟主题走：浅色=近黑、暗色=亮色
+              const caret = W.getComputedStyle($('.note-editor')).caretColor;
+              const rgb = caret.match(/(\d+),\s*(\d+),\s*(\d+)/);
+              const lum = rgb ? +rgb[1] * 0.299 + +rgb[2] * 0.587 + +rgb[3] * 0.114 : -1;
+              log(
+                lum >= 0 && (darkMode ? lum > 120 : lum < 90),
+                '输入光标色跟主题走（浅色近黑 / 暗色亮色）',
+                `${caret} theme=${D.documentElement.dataset.theme}`,
+              );
+            }
+
             // 输入 → 防抖后落库
             const ed = $('.note-editor');
             ed.focus();
@@ -1402,7 +1444,10 @@
                   else if (r.selectorText && /data-theme/.test(r.selectorText)) {
                     const bag = inMedia ? bags.media : bags.attr;
                     for (const p of r.style) {
-                      if (p.startsWith('--color-')) bag.set(p, r.style.getPropertyValue(p).trim());
+                      // --cur-* 是自绘光标（splitter / 便签模块），同样两份声明必须逐字一致
+                      if (p.startsWith('--color-') || p.startsWith('--cur-')) {
+                        bag.set(p, r.style.getPropertyValue(p).trim());
+                      }
                     }
                   }
                 }

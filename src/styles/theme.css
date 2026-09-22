@@ -57,6 +57,8 @@
   --color-on-acc: #ffffff;
   --color-mask: rgba(30, 25, 18, 0.34);
   --color-mark: #ffe9a8;
+  /* 输入光标：明亮下用近黑的正文色 —— 白底上对比度最高（琥珀色做 1px 光标太糊） */
+  --color-caret: #1d1b18;
   /* 站点图标底：明亮模式不垫底，图标直接落在卡片底色上 */
   --tile-bg: transparent;
 }
@@ -108,6 +110,8 @@
     --color-on-acc: #14120f;
     --color-mask: rgba(0, 0, 0, 0.6);
     --color-mark: #453412;
+    /* 深底上保留琥珀强调色（沿用原有暗色观感，对比依然充足） */
+    --color-caret: #dfa63f;
 
     /* 暗底上的深色站点图标（近黑 logo）会糊成一片 → 统一垫一层浅底 */
     --tile-bg: var(--color-ink);
@@ -147,6 +151,8 @@ html[data-theme='dark'] {
   --color-on-acc: #14120f;
   --color-mask: rgba(0, 0, 0, 0.6);
   --color-mark: #453412;
+  /* 深底上保留琥珀强调色（沿用原有暗色观感，对比依然充足） */
+  --color-caret: #dfa63f;
 
   /* 暗底上的深色站点图标（近黑 logo）会糊成一片 → 统一垫一层浅底 */
   --tile-bg: var(--color-ink);
@@ -1282,16 +1288,28 @@ textarea {
    所以自带一个双色箭头（实心 + 对比描边），底色怎么变都认得出：
    浅色下深芯 + 白边，暗色下白芯 + 深边。跟随 TabNest 主题而不是系统主题。
    两份暗色声明照旧保持逐字一致（见上方「暗色主题」说明）。 */
+/* 便签模块的整套光标（箭头 / 手 / 文本）同样自绘：系统方案在外壳是浅色时给的是
+   「白芯 + 细黑边」，压在米白便签面板上糊成一片 —— 与左侧拖拽条一个道理。
+   三个热点分别落在箭头尖、指尖、竖笔中心。用法见下方「便签面板」段。 */
 :root {
   --cur-resize: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%232b2620'%20stroke='%23ffffff'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M2%2012L9%207L9%2017Z'/%3E%3Cpath%20d='M22%2012L15%207L15%2017Z'/%3E%3Crect%20x='10.8'%20y='6.5'%20width='2.4'%20height='11'%20rx='0.6'/%3E%3C/g%3E%3C/svg%3E") 12 12;
+  --cur-arrow: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%232b2620'%20stroke='%23ffffff'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M4%202%20L4%2019.6%20L8.5%2015.6%20L11.6%2022%20L14.2%2020.6%20L11.1%2014.3%20L16.6%2013.6%20Z'/%3E%3C/g%3E%3C/svg%3E") 4 2;
+  --cur-hand: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%232b2620'%20stroke='%23ffffff'%20stroke-width='1.2'%20stroke-linejoin='round'%20stroke-linecap='round'%3E%3Cpath%20d='M9.2%205.2%20a1.7%201.7%200%200%201%203.4%200%20V11%20h1.1%20V8.6%20a1.5%201.5%200%200%201%203%200%20V12%20h1.1%20V9.8%20a1.5%201.5%200%200%201%203%200%20V15%20c0%203.6-2.4%205.9-5.9%205.9%20h-2.2%20c-1.5%200-2.7-.7-3.5-2%20l-3.6-5.6%20a1.6%201.6%200%200%201%202.6-1.8%20l1.9%202%20Z'/%3E%3C/g%3E%3C/svg%3E") 11 3;
+  --cur-text: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%232b2620'%20stroke='%23ffffff'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M7%203.4%20H17%20V5.6%20H13.1%20V18.6%20H17%20V20.8%20H7%20V18.6%20H10.9%20V5.6%20H7%20Z'/%3E%3C/g%3E%3C/svg%3E") 12 12;
 }
 @media (prefers-color-scheme: dark) {
   html:not([data-theme-mode='light']) {
     --cur-resize: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M2%2012L9%207L9%2017Z'/%3E%3Cpath%20d='M22%2012L15%207L15%2017Z'/%3E%3Crect%20x='10.8'%20y='6.5'%20width='2.4'%20height='11'%20rx='0.6'/%3E%3C/g%3E%3C/svg%3E") 12 12;
+    --cur-arrow: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M4%202%20L4%2019.6%20L8.5%2015.6%20L11.6%2022%20L14.2%2020.6%20L11.1%2014.3%20L16.6%2013.6%20Z'/%3E%3C/g%3E%3C/svg%3E") 4 2;
+    --cur-hand: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%20stroke-linecap='round'%3E%3Cpath%20d='M9.2%205.2%20a1.7%201.7%200%200%201%203.4%200%20V11%20h1.1%20V8.6%20a1.5%201.5%200%200%201%203%200%20V12%20h1.1%20V9.8%20a1.5%201.5%200%200%201%203%200%20V15%20c0%203.6-2.4%205.9-5.9%205.9%20h-2.2%20c-1.5%200-2.7-.7-3.5-2%20l-3.6-5.6%20a1.6%201.6%200%200%201%202.6-1.8%20l1.9%202%20Z'/%3E%3C/g%3E%3C/svg%3E") 11 3;
+    --cur-text: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M7%203.4%20H17%20V5.6%20H13.1%20V18.6%20H17%20V20.8%20H7%20V18.6%20H10.9%20V5.6%20H7%20Z'/%3E%3C/g%3E%3C/svg%3E") 12 12;
   }
 }
 html[data-theme='dark'] {
   --cur-resize: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M2%2012L9%207L9%2017Z'/%3E%3Cpath%20d='M22%2012L15%207L15%2017Z'/%3E%3Crect%20x='10.8'%20y='6.5'%20width='2.4'%20height='11'%20rx='0.6'/%3E%3C/g%3E%3C/svg%3E") 12 12;
+  --cur-arrow: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M4%202%20L4%2019.6%20L8.5%2015.6%20L11.6%2022%20L14.2%2020.6%20L11.1%2014.3%20L16.6%2013.6%20Z'/%3E%3C/g%3E%3C/svg%3E") 4 2;
+  --cur-hand: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%20stroke-linecap='round'%3E%3Cpath%20d='M9.2%205.2%20a1.7%201.7%200%200%201%203.4%200%20V11%20h1.1%20V8.6%20a1.5%201.5%200%200%201%203%200%20V12%20h1.1%20V9.8%20a1.5%201.5%200%200%201%203%200%20V15%20c0%203.6-2.4%205.9-5.9%205.9%20h-2.2%20c-1.5%200-2.7-.7-3.5-2%20l-3.6-5.6%20a1.6%201.6%200%200%201%202.6-1.8%20l1.9%202%20Z'/%3E%3C/g%3E%3C/svg%3E") 11 3;
+  --cur-text: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='%23f2efe9'%20stroke='%23121110'%20stroke-width='1.2'%20stroke-linejoin='round'%3E%3Cpath%20d='M7%203.4%20H17%20V5.6%20H13.1%20V18.6%20H17%20V20.8%20H7%20V18.6%20H10.9%20V5.6%20H7%20Z'/%3E%3C/g%3E%3C/svg%3E") 12 12;
 }
 .splitter {
   width: 13px;
@@ -1859,6 +1877,18 @@ body.resizing .note-pane {
 .note-pane > .splitter {
   align-self: stretch;
 }
+/* 整套光标自绘（token 见上方 Splitter 段）：鼠标一进便签模块就换成深芯光标，
+   不再撞上系统方案那份「白芯 + 细黑边」。三层分别对应面板底色 / 按钮 / 编辑区。 */
+.note-pane {
+  cursor: var(--cur-arrow), default;
+}
+.note-pane button {
+  cursor: var(--cur-hand), pointer;
+}
+.note-pane .note-body,
+.note-pane .note-editor {
+  cursor: var(--cur-text), text;
+}
 .note-inner {
   width: var(--note-w, 340px);
   flex: none;
@@ -1932,13 +1962,17 @@ body.resizing .note-pane {
   flex: none;
 }
 
-/* 编辑区 */
+/* 编辑区：编辑层铺满整块 —— 否则只有顶上 120px（min-height）是文本光标，
+   底下一大片空白落在 .note-body 上，鼠标移进去就成了另一个光标 */
 .note-body {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .note-editor {
   position: relative;
+  flex: 1 0 auto;
   min-height: 120px;
   outline: none;
   font-size: 13px;
@@ -1946,7 +1980,8 @@ body.resizing .note-pane {
   color: var(--color-ink);
   padding: 2px 2px 10px;
   word-break: break-word;
-  caret-color: var(--color-amber);
+  /* 光标色跟主题走（--color-caret）：明亮=近黑、暗色=琥珀；写死一个色在另一种主题下必然看不清 */
+  caret-color: var(--color-caret);
 }
 /* 占位提示走 data-empty：内容里只剩 <br> 时 :empty 匹配不上 */
 .note-editor[data-empty='true']::before {
