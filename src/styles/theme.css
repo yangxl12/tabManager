@@ -2031,6 +2031,14 @@ body.resizing .note-pane {
 .note-editor a {
   color: var(--color-blue);
 }
+/* 正文不接受任何外部底色 / 文字色：粘贴进编辑器（或已落库的历史内容）里可能留着
+   内联 background-color —— 在明亮模式下就是一块黑底，写死的 color 换主题后还会撞色。
+   !important 才能盖住内联样式；a 除外（链接保持自己的蓝色）。字号字重不在这里管，
+   h1/h2/b 的规则照旧生效。 */
+.note-editor *:not(a) {
+  background: transparent !important;
+  color: inherit !important;
+}
 
 /* 底栏：保存状态 + 字数 */
 .note-foot {

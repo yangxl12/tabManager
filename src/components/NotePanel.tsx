@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore, useT } from '@/store';
 import { NOTE_WIDTH_MAX, NOTE_WIDTH_MIN, clampNoteWidth } from '@/lib/noteMirror';
+import { sanitizePastedHtml } from '@/lib/noteHtml';
 import { IconChevron, IconListOl, IconListUl, IconNote } from './icons';
 
 const SAVE_DEBOUNCE = 500;
@@ -56,7 +57,11 @@ export function NotePanel() {
   const syncMeta = useCallback(() => {
     const el = editorRef.current;
     if (!el) return;
-    const text = el.innerText ?? '';
+    // 必须用 textContent 而不是 innerText：innerText 是「渲染后」的文本，
+    // 面板收起时（.note-pane 是 visibility: hidden）恒为 ''，会在「收起状态下回灌内容」时
+    // 把有内容的便签误判成空 —— 用户再展开就看到占位提示压在正文上。
+    // （\s 与 trim 都覆盖粘贴进来的 &nbsp;，与旧实现口径一致）
+    const text = el.textContent ?? '';
     setEmpty(text.trim() === '');
     setChars(text.replace(/\s/g, '').length);
   }, []);
@@ -160,6 +165,26 @@ export function NotePanel() {
     refreshTools();
     scheduleSave();
   }, [syncMeta, refreshTools, scheduleSave]);
+
+  /**
+   * 粘贴只收结构、不收样式（清洗规则见 lib/noteHtml）：
+   * 从深色网页 / 代码编辑器复制来的 HTML 常带内联 background-color，
+   * 原样落库后在明亮模式下就是一块黑底，而且 `color` 写死还会在换主题后撞色。
+   */
+  const onPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLDivElement>) => {
+      const html = e.clipboardData.getData('text/html');
+      const text = e.clipboardData.getData('text/plain');
+      if (!html && !text) return;
+      e.preventDefault();
+      const clean = html ? sanitizePastedHtml(html) : '';
+      if (clean) document.execCommand('insertHTML', false, clean);
+      else if (text) document.execCommand('insertText', false, text);
+      syncMeta();
+      scheduleSave();
+    },
+    [scheduleSave, syncMeta],
+  );
 
   /* ---------- 展开 / 收起 ---------- */
 
@@ -291,6 +316,7 @@ export function NotePanel() {
             data-empty={empty ? 'true' : 'false'}
             spellCheck={false}
             onInput={onInput}
+            onPaste={onPaste}
             onKeyUp={refreshTools}
             onBlur={flushSave}
             onKeyDown={(e) => {

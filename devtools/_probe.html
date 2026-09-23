@@ -636,6 +636,55 @@
               '收起再展开，内容不丢',
             );
 
+            /* 收起态回灌：.note-pane 收起时是 visibility:hidden，innerText 恒为 ''，
+               用它判空会把有内容的便签误判成「空」—— 展开后占位提示就压在正文上。
+               这里先失焦再收起，然后改 store 触发一次回灌，复现的正是那条路径。 */
+            if (D.activeElement && D.activeElement.blur) D.activeElement.blur();
+            $('.note-collapse').click();
+            await sleep(500);
+            stN().setNoteHtml('<div>收起态回灌</div>');
+            await sleep(500);
+            log(
+              $('.note-editor').dataset.empty === 'false' &&
+                $('.note-editor').textContent.includes('收起态回灌'),
+              '收起状态下回灌内容，占位判定不被渲染状态带偏',
+              `data-empty=${$('.note-editor').dataset.empty}`,
+            );
+            noteBtn().click();
+            await sleep(600);
+            log(
+              W.getComputedStyle($('.note-editor'), '::before').content === 'none',
+              '展开后占位提示不与正文重叠',
+              `::before content=${W.getComputedStyle($('.note-editor'), '::before').content}`,
+            );
+
+            /* 粘贴清洗：带内联样式的 HTML 不能原样落库 ——
+               `background-color: rgb(0,0,0)` 在明亮模式下就是一块黑底。 */
+            {
+              const dt = new W.DataTransfer();
+              dt.setData(
+                'text/html',
+                '<span style="background-color: rgb(0, 0, 0); color: rgb(255, 255, 255);">粘贴黑底</span>',
+              );
+              dt.setData('text/plain', '粘贴黑底');
+              const edEl = $('.note-editor');
+              edEl.focus();
+              edEl.dispatchEvent(
+                new W.ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+              );
+              await sleep(1100);
+              log(
+                stN().noteHtml.includes('粘贴黑底') && !/background|style=/i.test(stN().noteHtml),
+                '粘贴内容剥掉内联样式（明亮模式不会出现黑底）',
+                stN().noteHtml.slice(0, 90),
+              );
+              log(
+                $$('.note-editor [style]').length === 0,
+                '编辑区里没有任何带内联样式的元素',
+                `带 style 的元素 ${$$('.note-editor [style]').length} 个`,
+              );
+            }
+
             // 收尾：保持收起，别影响下次跑探针的状态
             if (stN().noteOpen) {
               $('.note-collapse').click();
