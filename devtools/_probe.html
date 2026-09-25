@@ -904,6 +904,18 @@
             'chrome.bookmarks.create 只被调用一次',
             JSON.stringify(W.__bmCreateLog.slice(logBefore)),
           );
+          const newId = W.__bmCreateLog[W.__bmCreateLog.length - 1].id;
+          // 双写现场：父节点 children 里同一个 id 出现两次 → 树里两行、两个输入框互抢焦点
+          const dupRows = $$('.tree-row').filter((r) => r.getAttribute('data-tree-row') === newId).length;
+          log(dupRows === 1, '新文件夹在树里只渲染一行（父子引用没被写两遍）', `data-tree-row=${newId} 出现 ${dupRows} 次`);
+          const kidNew = W.__tabnest.getState().bm.nodes['11'];
+          log(
+            kidNew && kidNew.children.filter((x) => x === newId).length === 1,
+            '父节点 children 里新 id 只引用一次',
+            kidNew ? kidNew.children.join(',') : '(missing)',
+          );
+          const inputRows = [...$$('.tree-row')].filter((r) => r.querySelector('input')).length;
+          log(inputRows === 1, '只出现一个重命名输入框（两个会互抢焦点）', `inputRows=${inputRows}`);
           const renameInput = $('.tree-row input');
           log(!!renameInput, '新文件夹直接进入重命名输入框');
           log(
@@ -914,24 +926,55 @@
           if (renameInput) {
             renameInput.focus();
             setInput(renameInput, '临时文件夹');
-            let fired = '';
-            renameInput.addEventListener('focusout', () => void (fired += 'focusout '));
-            renameInput.addEventListener('blur', () => void (fired += 'blur '));
-            renameInput.blur();
-            await sleep(400);
-            log(fired.length > 0, '输入框 blur/focusout 事件确实触发', fired || '(无)');
-            const st = W.__tabnest.getState();
+            renameInput.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+            await sleep(450);
+            const st2 = W.__tabnest.getState();
             log(
-              true,
-              'DEBUG 重命名',
-              `t902=${st.bm.nodes['902'] ? JSON.stringify(st.bm.nodes['902'].title) : 'missing'} sameInput=${$('.tree-row input') === renameInput} inputRows=${[...$$('.tree-row')].filter((r) => r.querySelector('input')).length} autoEdit=${JSON.stringify(st.autoEdit)} kid11=${(st.bm.nodes['11'] || {}).children.join(',')}`,
+              st2.bm.nodes[newId] && st2.bm.nodes[newId].title === '临时文件夹',
+              '回车提交后标题落到 store',
+              st2.bm.nodes[newId] ? st2.bm.nodes[newId].title : '(missing)',
             );
-            const kid = st.bm.nodes['11'] ? st.bm.nodes['11'].children : [];
             log(
               [...$$('.tree-name')].some((n) => n.textContent === '临时文件夹'),
-              '重命名生效',
-              `names=${[...$$('.tree-name')].map((n) => n.textContent).join('/')} | rows=${$$('.tree-row').length} input=${$('.tree-row input') ? 'yes' : 'no'} | contains901=${kid.indexOf('901')} contains902=${kid.indexOf('902')} t901=${st.bm.nodes['901'] ? st.bm.nodes['901'].title : 'missing'}`,
+              '重命名生效：树行显示新名字，输入框已退出',
+              `names=${[...$$('.tree-name')].map((n) => n.textContent).join('/')} | input=${$('.tree-row input') ? 'yes' : 'no'}`,
             );
+          }
+
+          /* ---------- 删除文件夹（二次确认 toast 全链路） ---------- */
+          {
+            // 删刚建出来的那个：动它之前先离开编辑态，别把基线数据弄乱
+            const st3 = W.__tabnest.getState();
+            const rows3 = $$('.tree-row').length;
+            st3.gotoFolder(newId);
+            await sleep(250);
+            $(`[data-tree-row="${newId}"] [data-row-menu="${newId}"]`).click();
+            await sleep(300);
+            const delItem = $$('.row-menu .row-menu__item').find((b) =>
+              b.textContent.includes('删除文件夹'),
+            );
+            log(!!delItem, '菜单里能点到「删除文件夹」');
+            delItem.click();
+            await sleep(350);
+            const danger = $$('.toast--danger').pop();
+            log(!!danger, '删除文件夹先弹危险提示（不是直接删）');
+            const act = danger ? danger.querySelector('.toast__act') : null;
+            log(!!act, '确认 toast 带「确认删除」按钮', act ? act.textContent : '(missing)');
+            act.click();
+            await sleep(700);
+            const st4 = W.__tabnest.getState();
+            log(st4.bm.nodes[newId] === undefined, '确认后节点从 store 里删掉');
+            log(
+              $$('.tree-row').length === rows3 - 1,
+              '确认后树少一行',
+              `${rows3} → ${$$('.tree-row').length}`,
+            );
+            log(
+              !$$('.tree-row').some((r) => r.getAttribute('data-tree-row') === newId),
+              '确认后不再残留该文件夹行（幽灵引用已清干净）',
+            );
+            st4.gotoFolder('11');
+            await sleep(200);
           }
 
           /* ---------- 批量删除 ---------- */
@@ -1709,6 +1752,10 @@
           .filter((e) => e.startsWith('reject'))
           .slice(-10)
           .forEach((e) => out.push('DBGLOG  ' + e));
+        // 失败计数要能被脚本读到：cdp.mjs 靠它决定退出码，别再「永远 OK」
+        const fails = out.filter((l) => l.startsWith('FAIL')).length;
+        W.__probeFails = fails;
+        out.push(`SUMMARY ${out.length - fails} PASS / ${fails} FAIL`);
         document.title = 'DONE';
         logEl.textContent = out.join('\n');
       });

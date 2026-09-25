@@ -31,6 +31,8 @@ interface Node {
   children: string[];
   /** Chrome 新版才有：顶层特殊文件夹的类型与「账号 / 此设备」归属 */
   folderType?: string;
+  /** 'managed'：由管理员 / 监护人配置，扩展不能改也不能删 */
+  unmodifiable?: string;
   syncing?: boolean;
 }
 
@@ -47,12 +49,16 @@ interface TabRec {
 
 export function installFakeChrome(): void {
   const nodes = new Map<string, Node>();
+  // 事件签名必须和真实 chrome.bookmarks API 逐字一致：
+  // onCreated(id, bookmark) / onChanged(id, changeInfo) / onRemoved(id, removeInfo)。
+  // 之前这里多包了一层 { id, node } / { id, info }，store 读不到 parentId，
+  // 「事件回灌 + 本地乐观更新双写」的竞态在 dev 下就被掩盖了。
   const bookmarks = {
-    onCreated: makeEmitter<[string, { id: string; node: unknown }]>(),
-    onRemoved: makeEmitter<[string, { id: string; info: unknown }]>(),
-    onChanged: makeEmitter<[string, { id: string; info: unknown }]>(),
-    onMoved: makeEmitter<[string, { id: string; info: unknown }]>(),
-    onChildrenReordered: makeEmitter<[string, { id: string; info: unknown }]>(),
+    onCreated: makeEmitter<[string, RawBmNode & { index?: number }]>(),
+    onRemoved: makeEmitter<[string, { parentId?: string; index?: number }]>(),
+    onChanged: makeEmitter<[string, { title?: string; url?: string }]>(),
+    onMoved: makeEmitter<[string, { parentId?: string; index?: number }]>(),
+    onChildrenReordered: makeEmitter<[string, { childIds: string[] }]>(),
     onImportBegan: makeEmitter<[]>(),
     onImportEnded: makeEmitter<[]>(),
   };
@@ -76,6 +82,7 @@ export function installFakeChrome(): void {
         url: r.url ?? '',
         children: (r.children ?? []).map((c) => c.id),
         folderType: r.folderType,
+        unmodifiable: r.unmodifiable,
         syncing: typeof r.syncing === 'boolean' ? r.syncing : undefined,
       });
       if (r.children) install(r.children, r.id);
@@ -85,11 +92,12 @@ export function installFakeChrome(): void {
 
   const toRaw = (id: string): RawBmNode => {
     const n = nodes.get(id)!;
-    const base = {
+    const base: RawBmNode = {
       id: n.id,
       parentId: n.parentId ?? undefined,
       title: n.title,
       folderType: n.folderType,
+      unmodifiable: n.unmodifiable,
       syncing: n.syncing,
     };
     return n.url
@@ -203,26 +211,37 @@ export function installFakeChrome(): void {
         parent.children.splice(at, 0, id);
         createLog.push({ id, parentId, title: info.title ?? '' });
         const node = nodes.get(id)!;
+        // 真 Chrome 里 onCreated 通常在 create() 的 Promise resolve 之前到达
+        // —— 这正是「事件回灌 + 本地乐观更新」双写竞态的现场，别改回成 resolve 之后
         queueMicrotask(() =>
           bookmarks.onCreated.emit(id, {
             id,
-            node: {
-              id,
-              parentId,
-              title: node.title,
-              url: node.url || undefined,
-              index: at,
-            },
+            parentId,
+            title: node.title,
+            url: node.url || undefined,
+            folderType: node.folderType,
+            unmodifiable: node.unmodifiable,
+            syncing: node.syncing,
+            index: at,
           }),
         );
-        return { id, parentId, title: node.title, url: node.url || undefined, index: at };
+        return {
+          id,
+          parentId,
+          title: node.title,
+          url: node.url || undefined,
+          folderType: node.folderType,
+          unmodifiable: node.unmodifiable,
+          syncing: node.syncing,
+          index: at,
+        };
       },
       async update(id: string, changes: { title?: string; url?: string }) {
         const n = nodes.get(id);
         if (!n) throw new Error('no bookmark with id: ' + id);
         Object.assign(n, changes);
-        queueMicrotask(() => bookmarks.onChanged.emit(id, { id, info: changes }));
-        return n;
+        queueMicrotask(() => bookmarks.onChanged.emit(id, { title: changes.title, url: changes.url }));
+        return { ...n, ...changes };
       },
       async remove(id: string) {
         const n = nodes.get(id);
@@ -232,7 +251,7 @@ export function installFakeChrome(): void {
         const parentId = n.parentId;
         nodes.delete(id);
         queueMicrotask(() =>
-          bookmarks.onRemoved.emit(id, { id, info: { parentId, index, node: n } }),
+          bookmarks.onRemoved.emit(id, { parentId: parentId ?? undefined, index }),
         );
       },
       async removeTree(id: string) {
@@ -246,7 +265,7 @@ export function installFakeChrome(): void {
         const parentId = n.parentId;
         drop(id);
         queueMicrotask(() =>
-          bookmarks.onRemoved.emit(id, { id, info: { parentId, index, node: n } }),
+          bookmarks.onRemoved.emit(id, { parentId: parentId ?? undefined, index }),
         );
       },
       async move(id: string, dest: { parentId?: string; index?: number }) {
@@ -260,7 +279,7 @@ export function installFakeChrome(): void {
           typeof dest.index === 'number' ? Math.min(dest.index, target.children.length) : target.children.length;
         target.children.splice(at, 0, id);
         n.parentId = targetId;
-        queueMicrotask(() => bookmarks.onMoved.emit(id, { id, info: { parentId: targetId, index: at } }));
+        queueMicrotask(() => bookmarks.onMoved.emit(id, { parentId: targetId, index: at }));
       },
     },
     tabs: {

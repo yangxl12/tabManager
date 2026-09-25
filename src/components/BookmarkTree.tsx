@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, useT } from '@/store';
-import { totalFolders, visibleRows, allFolderIds } from '@/lib/bookmarkTree';
+import { canModify, totalFolders, visibleRows, allFolderIds } from '@/lib/bookmarkTree';
 import { colorFor } from '@/lib/colors';
 import { IconChevron, IconFolder, IconFolderPlus, IconPencil, IconTrash } from './icons';
 import { RowMenu } from './RowMenu';
@@ -33,6 +33,8 @@ function TreeRow({
   const toggleCollapse = useStore((s) => s.toggleCollapse);
   const createFolder = useStore((s) => s.createFolder);
   const deleteFolderTree = useStore((s) => s.deleteFolderTree);
+  const toast = useStore((s) => s.toast);
+  const canEdit = useStore((s) => canModify(s.bm, id));
 
   const color = colorFor(node?.title || id);
 
@@ -110,25 +112,40 @@ function TreeRow({
           marker={id}
           title={t('tree.rowMore', { t: node.title })}
           items={[
-            {
-              key: 'rename',
-              label: t('tree.rename'),
-              icon: <IconPencil size={13} />,
-              onPick: () => onRename(id, '\u0000__start__'),
-            },
+            ...(canEdit
+              ? [
+                  {
+                    key: 'rename',
+                    label: t('tree.rename'),
+                    icon: <IconPencil size={13} />,
+                    onPick: () => onRename(id, '\u0000__start__'),
+                  },
+                ]
+              : []),
             {
               key: 'child',
               label: t('tree.newSub'),
               icon: <IconFolderPlus size={13} />,
               onPick: () => createFolder(id),
             },
-            {
-              key: 'remove',
-              label: t('tree.delFolder'),
-              icon: <IconTrash size={13} />,
-              danger: true,
-              onPick: () => deleteFolderTree(id),
-            },
+            ...(canEdit
+              ? [
+                  {
+                    key: 'remove',
+                    label: t('tree.delFolder'),
+                    icon: <IconTrash size={13} />,
+                    danger: true,
+                    onPick: () => deleteFolderTree(id),
+                  },
+                ]
+              : [
+                  {
+                    key: 'locked',
+                    label: t('tree.locked'),
+                    icon: <IconTrash size={13} />,
+                    onPick: () => toast(t('tree.locked'), { tone: 'warn' as const }),
+                  },
+                ]),
           ]}
         />
       )}

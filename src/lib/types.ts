@@ -18,6 +18,11 @@ export interface BmNode {
    */
   folderType?: string;
   /**
+   * 'managed' 表示该节点由系统管理员 / 监护人配置，扩展不能改也不能删
+   * （Chrome 也用它标记浏览器内建的不可修改顶层文件夹）。
+   */
+  unmodifiable?: string;
+  /**
    * true = 账号（同步）书签；false = 此设备（本地）书签。
    * 单一存储的老 Chrome 上为 undefined。顶层特殊文件夹才有，需向下继承给子树。
    */
@@ -38,7 +43,10 @@ export interface RawBmNode {
   url?: string;
   children?: RawBmNode[];
   folderType?: string;
+  unmodifiable?: string;
   syncing?: boolean;
+  /** 节点在父节点中的下标；onCreated 回灌时用它把节点放回正确位置 */
+  index?: number;
 }
 
 export interface TabItem {

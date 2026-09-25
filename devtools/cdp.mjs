@@ -150,6 +150,20 @@ try {
       await sleep(400);
       writeFileSync(out.replace(/\.(json|txt)$/, '') + '.png', await shoot(cdp));
     }
+    if (mode === 'probe') {
+      // 探针跑完必须给出机读结论：有 FAIL 就非零退出，
+      // 否则命令行里永远都是 "OK ->"，红灯全靠人肉 grep 才看得见
+      // （失败数以落盘日志为准；window.__probeFails 只是给外部脚本用的镜像）
+      const fails = text
+        .split('\n')
+        .filter((l) => l.startsWith('FAIL') || l.startsWith('SUMMARY 0 PASS')).length;
+      if (fails > 0) {
+        console.log(`PROBE FAIL: ${fails} 条断言失败 -> ${out}`);
+        process.exitCode = 1;
+      } else {
+        console.log('PROBE OK ->', out);
+      }
+    }
   } else if (mode === 'dom') {
     const r = await cdp.send('Runtime.evaluate', {
       expression: 'document.documentElement.outerHTML',
@@ -161,7 +175,7 @@ try {
   }
 
   cdp.close();
-  console.log('OK ->', out);
+  if (mode !== 'probe') console.log('OK ->', out);
 } finally {
   child.kill();
 }

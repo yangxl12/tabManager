@@ -41,6 +41,7 @@ const zh = {
   'tree.rename': '重命名',
   'tree.newSub': '新建子文件夹',
   'tree.delFolder': '删除文件夹',
+  'tree.locked': '浏览器内建 / 管理员配置的文件夹不能改名或删除',
   'group.account': '账号书签',
   'group.device': '此设备书签',
 
@@ -222,6 +223,7 @@ const en: Record<I18nKey, string> = {
   'tree.rename': 'Rename',
   'tree.newSub': 'New subfolder',
   'tree.delFolder': 'Delete folder',
+  'tree.locked': 'Browser-built or admin-managed folders can\u2019t be renamed or deleted',
   'group.account': 'Account bookmarks',
   'group.device': 'This device\u2019s bookmarks',
 

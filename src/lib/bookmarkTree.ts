@@ -39,6 +39,7 @@ export function normalizeTree(raw: RawBmNode[]): BmState {
       isFolder: !n.url,
       children: n.children ? n.children.map((c) => c.id) : [],
       folderType: n.folderType,
+      unmodifiable: n.unmodifiable,
       syncing,
     };
     if (n.children) for (const c of n.children) walk(c, n.id, syncing);
@@ -48,6 +49,92 @@ export function normalizeTree(raw: RawBmNode[]): BmState {
     walk(r, null);
   }
   return { nodes, roots };
+}
+
+/* -------------------------- 幂等写入（创建结果 / 事件回灌共用） -------------------------- */
+
+/**
+ * 把某个 id 放进父节点的 children，且保证只出现一次。
+ * 重复引用会让同一行渲染两次（相同 React key），重命名输入框互抢焦点，必须在这里堵住。
+ * 返回该 id 最终所在下标；父节点不存在时返回 -1。
+ */
+export function insertChildOnce(
+  state: BmState,
+  parentId: string,
+  index: number | undefined,
+  id: string,
+): number {
+  const p = state.nodes[parentId];
+  if (!p || !p.isFolder) return -1;
+  for (let i = p.children.length - 1; i >= 0; i--) {
+    if (p.children[i] === id) p.children.splice(i, 1);
+  }
+  // index 缺失（例如事件里没带）时按「追加到末尾」处理，避免 NaN 把节点插到最前面
+  const at =
+    typeof index === 'number' && Number.isFinite(index)
+      ? Math.max(0, Math.min(index, p.children.length))
+      : p.children.length;
+  p.children.splice(at, 0, id);
+  return at;
+}
+
+export interface NodeSeed {
+  id: string;
+  parentId: string;
+  title: string;
+  url: string;
+  isFolder: boolean;
+  index?: number;
+  folderType?: string;
+  unmodifiable?: string;
+  syncing?: boolean;
+}
+
+/**
+ * 创建节点的唯一写入口：本地乐观更新与 chrome.bookmarks.onCreated 回灌都必须走它。
+ *
+ * 双写是必然发生的（Promise 回调 + 事件回灌），因此这里必须幂等：
+ *  - 同一个 id 在 nodes 里只有一个，已存在时只 merge 字段，绝不整对象覆盖
+ *    （覆盖会丢掉先到的 children / syncing 等元信息）；
+ *  - 同一个 id 在父节点 children 里只保留一份，位置以最后一次拿到的 index 为准。
+ */
+export function upsertNode(state: BmState, seed: NodeSeed): void {
+  const prev = state.nodes[seed.id];
+  if (prev) {
+    prev.parentId = seed.parentId;
+    prev.title = seed.title;
+    prev.url = seed.url;
+    prev.isFolder = seed.isFolder;
+    if (seed.folderType !== undefined) prev.folderType = seed.folderType;
+    if (seed.unmodifiable !== undefined) prev.unmodifiable = seed.unmodifiable;
+    if (seed.syncing !== undefined) prev.syncing = seed.syncing;
+    else if (prev.syncing === undefined) {
+      // 新书签的存储归属继承自父文件夹；父节点没区分存储时保持 undefined
+      const inherit = seed.parentId ? state.nodes[seed.parentId]?.syncing : undefined;
+      if (typeof inherit === 'boolean') prev.syncing = inherit;
+    }
+    return;
+  }
+
+  state.nodes[seed.id] = {
+    id: seed.id,
+    parentId: seed.parentId,
+    title: seed.title,
+    url: seed.url,
+    isFolder: seed.isFolder,
+    children: [],
+    folderType: seed.folderType,
+    unmodifiable: seed.unmodifiable,
+    syncing: seed.syncing,
+  };
+
+  const p = state.nodes[seed.parentId];
+  if (!p?.isFolder) return;
+  // 父节点下标：拿不到就按父节点该 id 的现有位置，还没有就追加到末尾
+  const known = p.children.indexOf(seed.id);
+  const at =
+    typeof seed.index === 'number' ? seed.index : known > -1 ? known : p.children.length;
+  insertChildOnce(state, seed.parentId, at, seed.id);
 }
 
 export function nodeOf(state: BmState, id: string): BmNode | undefined {
@@ -139,15 +226,17 @@ export function pathOf(state: BmState, id: string): BmNode[] {
   return chain.filter((n) => !isSyntheticFolder(state, n));
 }
 
-/** 子树内书签总数 */
-export function countOf(state: BmState, id: string): number {
+/** 子树内书签总数（重复引用只算一次，且能扛住异常环） */
+export function countOf(state: BmState, id: string, seen: Set<string> = new Set()): number {
+  if (seen.has(id)) return 0;
+  seen.add(id);
   const n = state.nodes[id];
   if (!n || !n.isFolder) return 0;
   let total = 0;
   for (const cid of n.children) {
     const ch = state.nodes[cid];
     if (!ch) continue;
-    total += ch.isFolder ? countOf(state, cid) : ch.isDraft ? 0 : 1;
+    total += ch.isFolder ? countOf(state, cid, seen) : ch.isDraft ? 0 : 1;
   }
   return total;
 }
@@ -169,10 +258,14 @@ export function totalFolders(state: BmState): number {
 
 export function descendantIds(state: BmState, id: string): string[] {
   const out: string[] = [];
+  const seen = new Set<string>([id]);
   const walk = (nid: string) => {
     const n = state.nodes[nid];
     if (!n) return;
     for (const c of n.children) {
+      // 去重：同一个 id 被挂两次时，列表里不该出现两份（否则删除/计数会重复处理）
+      if (seen.has(c)) continue;
+      seen.add(c);
       out.push(c);
       if (state.nodes[c]?.isFolder) walk(c);
     }
@@ -194,10 +287,14 @@ export function isDescendant(state: BmState, ancestorId: string, id: string): bo
 /** 展平为渲染用行列表（按顶层分组顺序，逐组下钻） */
 export function visibleRows(state: BmState, expanded: Set<string>): TreeRow[] {
   const rows: TreeRow[] = [];
+  const seen = new Set<string>();
   const walk = (ids: string[], depth: number, group: RootGroup) => {
     for (const id of ids) {
       const n = state.nodes[id];
       if (!n || !n.isFolder) continue;
+      // 同一个 id 被挂两次时会渲染出两行（且 React key 重复、重命名输入框互抢焦点）
+      if (seen.has(id)) continue;
+      seen.add(id);
       const hasChildren = n.children.some((c) => state.nodes[c]?.isFolder);
       const open = expanded.has(id);
       rows.push({
@@ -215,6 +312,12 @@ export function visibleRows(state: BmState, expanded: Set<string>): TreeRow[] {
   return rows;
 }
 
+/** 节点是否可被扩展改名 / 删除（浏览器内建顶层文件夹与管理员托管节点不行） */
+export function canModify(state: BmState, id: string): boolean {
+  const n = state.nodes[id];
+  return !!n && !n.unmodifiable;
+}
+
 /** 索引：某节点在其父节点中的位置 */
 export function indexInParent(state: BmState, id: string): number {
   const n = state.nodes[id];
@@ -224,22 +327,33 @@ export function indexInParent(state: BmState, id: string): number {
 
 /* -------------------------- 可变操作（适配 immer draft） -------------------------- */
 
+/** 可变操作：删掉父节点 children 里该 id 的**全部**引用（不只是第一份） */
 export function detach(state: BmState, id: string): { parentId: string; index: number } | null {
   const n = state.nodes[id];
   if (!n || !n.parentId) return null;
   const p = state.nodes[n.parentId];
   if (!p) return null;
-  const i = p.children.indexOf(id);
-  if (i > -1) p.children.splice(i, 1);
-  return { parentId: p.id, index: i };
+  const first = p.children.indexOf(id);
+  if (first > -1) {
+    for (let i = p.children.length - 1; i >= 0; i--) {
+      if (p.children[i] === id) p.children.splice(i, 1);
+    }
+  }
+  // 只删第一份会留下幽灵 id：节点已从 nodes 里删掉，父节点却还引用着它
+  return { parentId: p.id, index: first };
 }
 
-export function attach(state: BmState, parentId: string, index: number, id: string): boolean {
+export function attach(
+  state: BmState,
+  parentId: string,
+  index: number | undefined,
+  id: string,
+): boolean {
   const p = state.nodes[parentId];
   const n = state.nodes[id];
   if (!p || !n || !p.isFolder) return false;
-  const i = Math.max(0, Math.min(index, p.children.length));
-  p.children.splice(i, 0, id);
+  const i = insertChildOnce(state, parentId, index, id);
+  if (i < 0) return false;
   n.parentId = parentId;
   return true;
 }
@@ -266,18 +380,26 @@ export function applySyncing(
   state: BmState,
   id: string,
   syncing: boolean | undefined,
+  seen: Set<string> = new Set(),
 ): void {
+  if (seen.has(id)) return;
+  seen.add(id);
   const n = state.nodes[id];
   if (!n) return;
   if (typeof syncing === 'boolean') n.syncing = syncing;
   else delete n.syncing;
-  for (const cid of n.children) applySyncing(state, cid, syncing);
+  for (const cid of n.children) applySyncing(state, cid, syncing, seen);
 }
 
 export function removeSubtree(state: BmState, id: string): void {
   const ids = [id, ...descendantIds(state, id)];
   detach(state, id);
   for (const i of ids) delete state.nodes[i];
+  // 清掉整棵树里指向已删节点的残留引用：重复引用 / 幽灵 id 会在移动与排序时继续作乱
+  for (const node of Object.values(state.nodes)) {
+    if (!node.children.some((c) => !state.nodes[c])) continue;
+    node.children = node.children.filter((c) => !!state.nodes[c]);
+  }
 }
 
 /* -------------------------- 排序计划 -------------------------- */

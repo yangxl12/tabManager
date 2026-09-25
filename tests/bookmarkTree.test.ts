@@ -19,6 +19,7 @@ import {
   storageOf,
   totalBookmarks,
   treeRootIds,
+  upsertNode,
   visibleRows,
 } from '@/lib/bookmarkTree';
 import type { BmState, RawBmNode } from '@/lib/types';
@@ -167,6 +168,102 @@ describe('可变操作', () => {
     expect(s.nodes['12']).toBeUndefined();
     expect(s.nodes['120']).toBeUndefined();
     expect(s.nodes['1'].children).toEqual(['10', '11']);
+  });
+});
+
+describe('重复引用（同一个 id 挂在父节点两次）', () => {
+  const dup = () => {
+    const s = makeState();
+    // 复现线上现场：一次创建被「事件回灌 + 本地乐观更新」各写一次
+    s.nodes['1'].children.push('12');
+    return s;
+  };
+
+  it('detach 一次清掉全部引用，不留幽灵 id', () => {
+    const s = dup();
+    expect(s.nodes['1'].children).toEqual(['10', '11', '12', '12']);
+    expect(detach(s, '12')).toEqual({ parentId: '1', index: 2 });
+    expect(s.nodes['1'].children).toEqual(['10', '11']);
+  });
+
+  it('removeSubtree 后父节点不再残留已删 id', () => {
+    const s = dup();
+    removeSubtree(s, '12');
+    expect(s.nodes['12']).toBeUndefined();
+    expect(s.nodes['120']).toBeUndefined();
+    expect(s.nodes['1'].children).toEqual(['10', '11']);
+  });
+
+  it('attach 不会把同一个 id 插第二次', () => {
+    const s = dup();
+    expect(attach(s, '1', 0, '12')).toBe(true);
+    expect(s.nodes['1'].children).toEqual(['12', '10', '11']);
+  });
+
+  it('descendantIds 去重，countOf 不会重复计数', () => {
+    const s = dup();
+    expect(descendantIds(s, '1')).toEqual(['10', '11', '12', '120']);
+    expect(countOf(s, '1')).toBe(3);
+  });
+});
+
+describe('upsertNode（创建结果 / 事件回灌的唯一写入口）', () => {
+  it('重复写入同一个 id 只留一份，且节点与引用都唯一', () => {
+    const s = makeState();
+    const seed = {
+      id: '900',
+      parentId: '12',
+      title: '新建文件夹',
+      url: '',
+      isFolder: true,
+    };
+    // 第一次插入：事件里带了 index 就按它落位
+    upsertNode(s, { ...seed, index: 0 });
+    expect(s.nodes['12'].children).toEqual(['900', '120']);
+    // 后到的回灌不带 index：保持现有位置，不能把节点挪到末尾
+    upsertNode(s, { ...seed, title: '改过的名字' });
+
+    expect(s.nodes['12'].children).toEqual(['900', '120']);
+    expect(s.nodes['900'].title).toBe('改过的名字');
+    for (const n of Object.values(s.nodes)) {
+      expect(new Set(n.children).size).toBe(n.children.length);
+    }
+  });
+
+  it('后到的写入不会抹掉先到时已有的 children / syncing', () => {
+    const s = makeState();
+    upsertNode(s, {
+      id: '900',
+      parentId: '1',
+      title: '新建文件夹',
+      url: '',
+      isFolder: true,
+      index: 0,
+      syncing: true,
+    });
+    // 先到的写入之后本地已经在它下面挂了子项，后到的回灌不能把 children 抹成空
+    s.nodes['900'].children.push('120');
+    upsertNode(s, {
+      id: '900',
+      parentId: '1',
+      title: '新建文件夹',
+      url: '',
+      isFolder: true,
+    });
+
+    expect(s.nodes['900'].children).toEqual(['120']);
+    expect(s.nodes['900'].syncing).toBe(true);
+    expect(s.nodes['1'].children[0]).toBe('900');
+  });
+
+  it('父节点不存在时只建节点不挂载，index 缺失也不会插到最前面', () => {
+    const s = makeState();
+    upsertNode(s, { id: '900', parentId: 'nope', title: 'x', url: '', isFolder: true });
+    expect(s.nodes['900']).toBeDefined();
+    expect(s.nodes['1'].children).toEqual(['10', '11', '12']);
+
+    upsertNode(s, { id: '901', parentId: '1', title: 'y', url: '', isFolder: true });
+    expect(s.nodes['1'].children).toEqual(['10', '11', '12', '901']);
   });
 });
 

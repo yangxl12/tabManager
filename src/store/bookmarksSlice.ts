@@ -15,6 +15,7 @@ import {
   pathOf,
   removeSubtree,
   treeRootIds,
+  upsertNode,
 } from '@/lib/bookmarkTree';
 import { normalizeUrl } from '@/lib/url';
 import { t } from '@/lib/i18n';
@@ -132,20 +133,23 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       chrome.bookmarks.onCreated.addListener((id, node) => {
         const raw = node as unknown as RawBmNode & { index?: number };
         set((s) => {
-          if (s.bm.nodes[id]) return;
-          s.bm.nodes[id] = {
+          // 与 createFolder 等本地乐观更新共用同一个写入口：
+          // 谁先到谁建节点，后到的只 merge 字段 + 保证父节点里只有一份引用。
+          const parentId = raw.parentId ?? s.bm.nodes[id]?.parentId;
+          if (!parentId) return;
+          upsertNode(s.bm, {
             id,
-            parentId: raw.parentId ?? null,
-            title: raw.title ?? '',
+            parentId,
+            title: raw.title ?? s.bm.nodes[id]?.title ?? '',
             url: raw.url ?? '',
             isFolder: !raw.url,
-            children: [],
-          };
-          const p = raw.parentId ? s.bm.nodes[raw.parentId] : undefined;
-          if (p) {
-            const idx = typeof raw.index === 'number' ? raw.index : p.children.length;
-            p.children.splice(Math.max(0, Math.min(idx, p.children.length)), 0, id);
-          }
+            index: raw.index,
+            folderType: raw.folderType,
+            unmodifiable: raw.unmodifiable,
+            syncing: raw.syncing,
+          });
+          // 文件夹刚被建出来时，父级若是收起状态要展开，否则命名输入框看不见
+          if (!raw.url) s.collapsed = s.collapsed.filter((x) => x !== parentId);
         });
       });
 
@@ -153,8 +157,15 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         set((s) => {
           if (!s.bm.nodes[id]) return;
           removeSubtree(s.bm, id);
+          // 另一个标签页或 Chrome 原生书签管理器删掉了当前文件夹时，
+          // 这里也要把指向它的 UI 状态一起收干净，否则界面会停在一个已不存在的目录
           s.selectedBms = s.selectedBms.filter((x) => !!s.bm.nodes[x]);
           s.closingBms = s.closingBms.filter((x) => !!s.bm.nodes[x]);
+          s.collapsed = s.collapsed.filter((x) => !!s.bm.nodes[x]);
+          if (s.autoEdit && !s.bm.nodes[s.autoEdit.id]) s.autoEdit = null;
+          if (!s.bm.nodes[s.currentFolder]?.isFolder) {
+            s.currentFolder = treeRootIds(s.bm)[0] ?? '';
+          }
         });
       });
 
@@ -322,18 +333,20 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       const parent = get().bm.nodes[parentId];
       if (!parent?.isFolder) return;
       void Bookmarks.createFolder(parentId, t('bm.newFolder'))
-        .then((id) => {
+        .then((created) => {
+          const id = created.id;
           set((s) => {
-            s.bm.nodes[id] = {
+            upsertNode(s.bm, {
               id,
               parentId,
-              title: t('bm.newFolder'),
+              title: created.title || t('bm.newFolder'),
               url: '',
               isFolder: true,
-              children: [],
-            };
-            const p = s.bm.nodes[parentId];
-            if (p) p.children.push(id);
+              index: created.index,
+              folderType: created.folderType,
+              unmodifiable: created.unmodifiable,
+              syncing: created.syncing,
+            });
             // 父级若被手动收起则展开，否则新文件夹的命名输入框看不见
             s.collapsed = s.collapsed.filter((x) => x !== parentId);
           });
@@ -476,25 +489,23 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       const sorted = [...rec.items].sort((a, b) => a.index - b.index);
       try {
         for (const item of sorted) {
-          const id = await Bookmarks.createBookmark(
+          const made = await Bookmarks.createBookmark(
             item.parentId,
             item.node.title,
             item.node.url,
             item.index,
           );
-          created.push(id);
+          created.push(made.id);
           set((s) => {
-            s.bm.nodes[id] = {
-              ...item.node,
-              id,
+            upsertNode(s.bm, {
+              id: made.id,
               parentId: item.parentId,
-              children: [],
-            };
-            const p = s.bm.nodes[item.parentId];
-            if (p) {
-              const idx = Math.max(0, Math.min(item.index, p.children.length));
-              p.children.splice(idx, 0, id);
-            }
+              title: item.node.title,
+              url: item.node.url,
+              isFolder: false,
+              index: made.index ?? item.index,
+              syncing: made.syncing,
+            });
           });
         }
         const target = sorted[0]?.parentId;
@@ -527,19 +538,18 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       const created: string[] = [];
       for (const item of items) {
         try {
-          const id = await Bookmarks.createBookmark(parentId, item.name, item.url);
-          created.push(id);
+          const made = await Bookmarks.createBookmark(parentId, item.name, item.url);
+          created.push(made.id);
           set((s) => {
-            s.bm.nodes[id] = {
-              id,
+            upsertNode(s.bm, {
+              id: made.id,
               parentId,
               title: item.name,
               url: item.url,
               isFolder: false,
-              children: [],
-            };
-            const p = s.bm.nodes[parentId];
-            if (p) p.children.push(id);
+              index: made.index,
+              syncing: made.syncing,
+            });
           });
         } catch {
           /* 单条失败跳过 */
@@ -561,19 +571,18 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       const created: string[] = [];
       for (const t of tabs) {
         try {
-          const id = await Bookmarks.createBookmark(folderId, t.title, t.url);
-          created.push(id);
+          const made = await Bookmarks.createBookmark(folderId, t.title, t.url);
+          created.push(made.id);
           set((s) => {
-            s.bm.nodes[id] = {
-              id,
+            upsertNode(s.bm, {
+              id: made.id,
               parentId: folderId,
               title: t.title,
               url: t.url,
               isFolder: false,
-              children: [],
-            };
-            const p = s.bm.nodes[folderId];
-            if (p) p.children.push(id);
+              index: made.index,
+              syncing: made.syncing,
+            });
           });
         } catch {
           /* 跳过 */
@@ -691,24 +700,24 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
     const parentId = node.parentId;
     const idx = indexInParent(state.bm, draftId);
     try {
-      const realId = await Bookmarks.createBookmark(parentId, node.title, node.url);
+      const made = await Bookmarks.createBookmark(parentId, node.title, node.url);
       set((s) => {
-        const p = s.bm.nodes[parentId];
-        if (p) {
-          const at = p.children.indexOf(draftId);
-          if (at > -1) p.children.splice(at, 1, realId);
-        }
-        delete s.bm.nodes[draftId];
-        s.bm.nodes[realId] = {
-          id: realId,
+        // 先按草稿所在位置把真实节点插进去，再摘掉草稿：
+        // 顺序反过来会先空出位置，真实节点被追加到末尾，且容易和 onCreated 双写
+        const at = indexInParent(s.bm, draftId);
+        upsertNode(s.bm, {
+          id: made.id,
           parentId,
           title: node.title,
           url: node.url,
           isFolder: false,
-          children: [],
-        };
-        s.selectedBms = s.selectedBms.map((x) => (x === draftId ? realId : x));
-        if (s.autoEdit?.id === draftId) s.autoEdit = { ...s.autoEdit, id: realId };
+          index: made.index ?? (at > -1 ? at : undefined),
+          syncing: made.syncing,
+        });
+        detach(s.bm, draftId);
+        delete s.bm.nodes[draftId];
+        s.selectedBms = s.selectedBms.map((x) => (x === draftId ? made.id : x));
+        if (s.autoEdit?.id === draftId) s.autoEdit = { ...s.autoEdit, id: made.id };
       });
       void idx;
     } catch (err) {
