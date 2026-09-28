@@ -78,6 +78,35 @@ describe('快捷访问分类', () => {
       .toEqual(['old', 'other']);
   });
 
+  it('磁贴拖到分组标签后移入末尾并持久化，重复投放不复制', async () => {
+    const storage = stubChromeStorage();
+    storage['tabnest.quickGroups'] = [{ id: 'g1', name: '工作' }, { id: 'g2', name: '隐藏', hidden: true }];
+    useStore.setState({
+      quickGroups: [{ id: 'g1', name: '工作' }, { id: 'g2', name: '隐藏', hidden: true }],
+      quickSites: [
+        { id: 'old', name: '旧站点', url: 'https://example.com' },
+        { id: 'existing', name: '已有', url: 'https://existing.com', groupId: 'g1' },
+      ],
+    });
+
+    const s = useStore.getState();
+    s.moveQuickToGroup('old', 'g1');
+    expect(useStore.getState().quickSites.filter((q) => quickGroupOf(q) === 'g1').map((q) => q.id))
+      .toEqual(['existing', 'old']);
+    expect((storage['tabnest.quickSites'] as Array<{ id: string; groupId: string }>).at(-1))
+      .toMatchObject({ id: 'old', groupId: 'g1' });
+
+    s.moveQuickToGroup('old', 'g1');
+    s.moveQuickToGroup('old', 'g2');
+    expect(useStore.getState().quickSites.map((q) => q.id)).toEqual(['existing', 'old']);
+    expect(useStore.getState().quickSites.find((q) => q.id === 'old')?.groupId).toBe('g1');
+
+    s.moveQuickToGroup('old', DEFAULT_QUICK_GROUP_ID);
+    await useStore.getState().initQuick();
+    expect(quickGroupOf(useStore.getState().quickSites.find((q) => q.id === 'old')!))
+      .toBe(DEFAULT_QUICK_GROUP_ID);
+  });
+
   it('存储回读保留分类归属，并过滤无效分类', () => {
     expect(sanitizeQuickSites([{ id: 'q1', name: 'AI', url: 'https://example.com', groupId: 'g1' }]))
       .toEqual([{ id: 'q1', name: 'AI', url: 'https://example.com', groupId: 'g1' }]);

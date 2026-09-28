@@ -80,6 +80,9 @@ const zh = {
   'quick.added': '已加入 {n} 个快捷访问',
   'quick.addedSkip': '已加入 {n} 个，跳过 {s} 个（重复或没有可用网址）',
   'quick.addNone': '没有可加入的条目：都已在快捷访问里，或没有可用网址',
+  'quick.movedToGroup': '已移入「{t}」',
+  'quick.bookmarked': '已加入书签「{t}」',
+  'quick.bookmarkFail': '加入书签失败',
 
   // 导入弹窗
   'imp.title': '批量导入书签',
@@ -273,6 +276,9 @@ const en: Record<I18nKey, string> = {
   'quick.added': 'Added {n} quick site(s)',
   'quick.addedSkip': 'Added {n}, skipped {s} (duplicate or no usable URL)',
   'quick.addNone': 'Nothing to add: already in quick sites, or no usable URL',
+  'quick.movedToGroup': 'Moved to "{t}"',
+  'quick.bookmarked': 'Bookmarked in "{t}"',
+  'quick.bookmarkFail': 'Could not create bookmark',
 
   'imp.title': 'Bulk import bookmarks',
   'imp.descA': 'Supports ',

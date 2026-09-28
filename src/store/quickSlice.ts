@@ -80,6 +80,7 @@ export interface QuickSlice {
   addQuickSites: (items: Array<{ name: string; url: string }>, groupId?: string) => void;
   updateQuick: (id: string, name: string, url: string) => void;
   removeQuick: (id: string) => void;
+  moveQuickToGroup: (id: string, groupId: string) => void;
   /** 拖拽排序：传「重排后的完整 id 顺序」，未列出的条目按原相对顺序追加在后 */
   reorderQuick: (desired: string[], groupId?: string) => void;
   initQuick: () => Promise<void>;
@@ -211,6 +212,24 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       s.quickSites = s.quickSites.filter((q) => q.id !== id);
     });
     void setLocal(KEYS.quickSites, get().quickSites);
+  },
+
+  moveQuickToGroup(id, groupId) {
+    const site = get().quickSites.find((q) => q.id === id);
+    if (!site || quickGroupOf(site) === groupId) return;
+    if (groupId !== DEFAULT_QUICK_GROUP_ID && !get().quickGroups.some((g) => g.id === groupId && !g.hidden)) return;
+    set((s) => {
+      const index = s.quickSites.findIndex((q) => q.id === id);
+      if (index < 0) return;
+      const [moved] = s.quickSites.splice(index, 1);
+      moved.groupId = groupId;
+      s.quickSites.push(moved);
+    });
+    void setLocal(KEYS.quickSites, get().quickSites);
+    const name = groupId === DEFAULT_QUICK_GROUP_ID
+      ? t('quick.defaultGroup')
+      : get().quickGroups.find((g) => g.id === groupId)?.name ?? '';
+    get().toast(t('quick.movedToGroup', { t: name }));
   },
 
   reorderQuick(desired, groupId = get().activeQuickGroupId) {

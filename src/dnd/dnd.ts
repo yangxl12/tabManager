@@ -1,14 +1,13 @@
 /**
  * 拖拽系统（pragmatic-drag-and-drop）
- * 7 个场景：标签排序 / 标签→书签 / 书签排序 / 书签·文件夹→文件夹 /
- *          标签·书签→快捷访问 / 快捷磁贴排序 / JSON 文件拖入
+ * 标签 / 书签 / 快捷磁贴之间的拖拽，以及 JSON 文件拖入。
  * 所有落点逻辑集中在 useDndRoot 的 monitor 里，卡片只负责注册自身。
  *
  * 命名空间提醒：「快捷访问」这里有两个身份，别混：
- *   源   kind: 'quick'      —— 快捷磁贴（QuickSite），只能落到快捷访问区
+ *   源   kind: 'quick'      —— 快捷磁贴（QuickSite）
  *   落点 kind: 'quickPane'  —— 整个快捷访问区（收标签/书签=加入；收磁贴=移到末尾）
  *   落点 kind: 'quickTile'  —— 单个磁贴（只收磁贴=排序）
- * 除了这两个落点，别的落点一律不认 quick 源（否则快捷 id 会被塞进标签/书签逻辑里）。
+ * 书签网格和快捷访问分组标签也接收 quick 源，各自按来源类型分流。
  */
 import { useEffect, useRef, type RefObject } from 'react';
 import {
@@ -25,6 +24,7 @@ import type { DropTargetRecord } from '@atlaskit/pragmatic-drag-and-drop/types';
 import { childrenOf, dropInsertIndex, reorderIds } from '@/lib/bookmarkTree';
 import { quickGroupOf } from '@/store/quickSlice';
 import { hostOf } from '@/lib/url';
+import { t } from '@/lib/i18n';
 import { useStore } from '@/store';
 
 /** 拖拽源类型：quick 只由快捷磁贴产生 */
@@ -71,18 +71,23 @@ interface QuickTileTargetData {
   groupId: string;
 }
 
+interface QuickGroupTargetData {
+  kind: 'quickGroup';
+  groupId: string;
+}
+
 type AnyTargetData =
   | SortTargetData
   | FolderTargetData
   | PaneTargetData
   | QuickPaneTargetData
   | QuickTileTargetData
+  | QuickGroupTargetData
   | Record<string, unknown>;
 
 /**
  * 卡片源（标签 / 书签）。落点侧一律用它做 canDrop ——
- * 只有这两类能落到标签网格、书签网格、文件夹、面板空区，
- * 快捷磁贴若混进来，它的字符串 id 会被当成书签 id 塞进书签树。
+ * 标签和书签的通用判别，快捷磁贴须在接收它的目标中单独处理。
  */
 function isCardDrag(data: unknown): data is DragSource {
   if (!data || typeof data !== 'object') return false;
@@ -235,12 +240,14 @@ export function useSortableTarget({
         }),
       canDrop: ({ source }) => {
         const data = source.data as unknown;
+        if (kind === 'bookmark' && isQuickDrag(data)) return true;
         if (!isCardDrag(data)) return false;
-        // 标签排序只接受标签；书签网格同时接受标签（存为书签）与书签
         return kind === 'tab' ? data.kind === 'tab' : true;
       },
       getIsSticky: () => true,
-      getDropEffect: () => 'move',
+      getDropEffect: ({ source }) =>
+        kind === 'bookmark' && (isQuickDrag(source.data) || (isCardDrag(source.data) && source.data.kind === 'tab'))
+          ? 'copy' : 'move',
     });
   }, [elementRef, kind]);
 }
@@ -306,10 +313,13 @@ export function usePaneTarget({
       },
       canDrop: ({ source }) => {
         const data = source.data as unknown;
+        if (scope === 'bookmark' && isQuickDrag(data)) return true;
         if (!isCardDrag(data)) return false;
         return scope === 'tab' ? data.kind === 'tab' : true;
       },
-      getDropEffect: () => 'move',
+      getDropEffect: ({ source }) =>
+        scope === 'bookmark' && (isQuickDrag(source.data) || (isCardDrag(source.data) && source.data.kind === 'tab'))
+          ? 'copy' : 'move',
     });
   }, [elementRef, scope]);
 }
@@ -388,6 +398,30 @@ export function useQuickSortTarget({
   }, [elementRef]);
 }
 
+/** 快捷磁贴落到上方某个分组标签时，移入该分组。 */
+export function useQuickGroupTargets({
+  elementRef,
+  groupsKey,
+}: {
+  elementRef: RefObject<HTMLElement | null>;
+  groupsKey: string;
+}) {
+  useEffect(() => {
+    const root = elementRef.current;
+    if (!root) return;
+    const off = Array.from(root.querySelectorAll<HTMLElement>('[data-quick-group]')).map((element) => {
+      const groupId = element.dataset.quickGroup!;
+      return dropTargetForElements({
+        element,
+        getData: () => ({ kind: 'quickGroup', groupId }),
+        canDrop: ({ source }) => isQuickDrag(source.data),
+        getDropEffect: () => 'move',
+      });
+    });
+    return () => off.forEach((cleanup) => cleanup());
+  }, [elementRef, groupsKey]);
+}
+
 /* ------------------------------ 注册：外部文件拖入 ------------------------------ */
 
 let fileDropHandler: ((files: File[]) => void) | null = null;
@@ -432,12 +466,23 @@ function updateIndicator(targets: DropTargetRecord[]): void {
   const st = useStore.getState();
   const top = pickTarget(targets, st.drag.ids);
   if (!top) {
-    if (st.drag.indicator || st.drag.dropFolderId || st.drag.dropPane || st.drag.dropQuick) {
-      st.setDrag({ indicator: null, dropFolderId: null, dropPane: null, dropQuick: false });
+    if (st.drag.indicator || st.drag.dropFolderId || st.drag.dropPane || st.drag.dropQuick || st.drag.dropQuickGroupId) {
+      st.setDrag({ indicator: null, dropFolderId: null, dropPane: null, dropQuick: false, dropQuickGroupId: null });
     }
     return;
   }
   const d = top.data as AnyTargetData;
+
+  if (st.drag.dropQuickGroupId && d.kind !== 'quickGroup') {
+    st.setDrag({ dropQuickGroupId: null });
+  }
+  if (d.kind === 'quickGroup') {
+    const groupId = (d as QuickGroupTargetData).groupId;
+    if (st.drag.dropQuickGroupId !== groupId) {
+      st.setDrag({ dropQuickGroupId: groupId, indicator: null, dropFolderId: null, dropPane: null, dropQuick: false });
+    }
+    return;
+  }
 
   // 快捷磁贴排序：指示线插在目标磁贴左右
   if (d.kind === 'quickTile') {
@@ -508,8 +553,23 @@ function handleDrop(source: DragSource, targets: DropTargetRecord[]): void {
   const st = useStore.getState();
   const d = top.data as AnyTargetData;
 
-  // 快捷磁贴：排序（只认磁贴 / 空白区两种落点，落到别处什么也不做）
+  // 快捷磁贴：区内排序、移入分组，或复制为当前文件夹的书签。
   if (source.kind === 'quick') {
+    if (d.kind === 'quickGroup') {
+      st.moveQuickToGroup(source.id, (d as QuickGroupTargetData).groupId);
+      return;
+    }
+    if (d.kind === 'bookmark' || (d.kind === 'pane' && (d as PaneTargetData).scope === 'bookmark')) {
+      const folderId = d.kind === 'bookmark' ? (d as SortTargetData).parentId : st.currentFolder;
+      const site = st.quickSites.find((q) => q.id === source.id);
+      if (folderId && folderId === st.currentFolder && site) {
+        void st.importItems([{ name: site.name, url: site.url }]).then((count) => {
+          if (count) st.toast(t('quick.bookmarked', { t: st.bm.nodes[folderId]?.title ?? '' }));
+          else st.toast(t('quick.bookmarkFail'), { tone: 'warn' });
+        });
+      }
+      return;
+    }
     if (d.kind === 'quickTile') {
       const { id, groupId } = d as QuickTileTargetData;
       if (source.ids.includes(id)) return;
@@ -615,6 +675,7 @@ export function useDndRoot(): void {
           dropFolderId: null,
           dropPane: null,
           dropQuick: false,
+          dropQuickGroupId: null,
         });
       },
       onDrag: ({ location }) => updateIndicator(location.current.dropTargets),
@@ -639,6 +700,7 @@ export function useDndRoot(): void {
           dropFolderId: null,
           dropPane: null,
           dropQuick: false,
+          dropQuickGroupId: null,
         });
       },
       onDrag: ({ location }) => updateIndicator(location.current.dropTargets),

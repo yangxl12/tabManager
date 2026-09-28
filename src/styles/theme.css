@@ -480,6 +480,11 @@ textarea {
 .quick-tab--fixed { flex: none; }
 .quick-tab:hover, .quick-tab-wrap:hover .quick-tab { background: var(--color-hover); color: var(--color-ink); }
 .quick-tab.is-active { background: var(--sec-soft); color: var(--sec); }
+.quick-tab.is-drop {
+  background: var(--sec-soft);
+  color: var(--sec);
+  box-shadow: inset 0 0 0 2px var(--sec);
+}
 .quick-tab-wrap .quick-tab__more {
   position: absolute;
   right: 3px;

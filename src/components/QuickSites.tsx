@@ -6,7 +6,7 @@ import { hostOf, normalizeUrl } from '@/lib/url';
 import { IconEye, IconEyeOff, IconPencil, IconTrash } from './icons';
 import { RowMenu } from './RowMenu';
 import { Tile } from './Tile';
-import { useCardDrag, useQuickSortTarget, useQuickTarget } from '@/dnd/dnd';
+import { useCardDrag, useQuickGroupTargets, useQuickSortTarget, useQuickTarget } from '@/dnd/dnd';
 import { DEFAULT_QUICK_GROUP_ID, quickGroupOf } from '@/store/quickSlice';
 import { CURATED_QUICK_GROUP_IDS } from '@/lib/curatedQuickSites';
 import type { QuickSite } from '@/lib/types';
@@ -129,6 +129,7 @@ export function QuickSites() {
   const addQuick = useStore((s) => s.addQuick);
   const updateQuick = useStore((s) => s.updateQuick);
   const dropQuick = useStore((s) => s.drag.dropQuick);
+  const dropQuickGroupId = useStore((s) => s.drag.dropQuickGroupId);
   const toast = useStore((s) => s.toast);
   const [form, setForm] = useState<FormState>(CLOSED);
   const [groupForm, setGroupForm] = useState<{ id: string | null; name: string } | null>(null);
@@ -144,6 +145,10 @@ export function QuickSites() {
 
   // 标签 / 书签卡片拖到这里 = 加入快捷访问；快捷磁贴拖到空白 = 挪到末尾
   useQuickTarget({ elementRef: paneRef, groupId: activeGroupId });
+  useQuickGroupTargets({
+    elementRef: paneRef,
+    groupsKey: visibleGroups.map((group) => group.id).join('|'),
+  });
 
   useEffect(() => {
     if (form.open) nameRef.current?.focus();
@@ -225,7 +230,8 @@ export function QuickSites() {
             role="tab"
             aria-selected={activeGroupId === DEFAULT_QUICK_GROUP_ID}
             aria-controls="quick-site-grid"
-            className={`quick-tab quick-tab--fixed${activeGroupId === DEFAULT_QUICK_GROUP_ID ? ' is-active' : ''}`}
+            className={`quick-tab quick-tab--fixed${activeGroupId === DEFAULT_QUICK_GROUP_ID ? ' is-active' : ''}${dropQuickGroupId === DEFAULT_QUICK_GROUP_ID ? ' is-drop' : ''}`}
+            data-quick-group={DEFAULT_QUICK_GROUP_ID}
             onClick={() => selectGroup(DEFAULT_QUICK_GROUP_ID)}
           >
             {t('quick.defaultGroup')}
@@ -260,6 +266,7 @@ export function QuickSites() {
                 setDropGroup({ id: group.id, side: event.clientX < rect.left + rect.width / 2 ? 'before' : 'after' });
               }}
               onDrop={(event) => {
+                if (!dragGroupId) return;
                 event.preventDefault();
                 const rect = event.currentTarget.getBoundingClientRect();
                 dropOnGroup(group.id, event.clientX < rect.left + rect.width / 2 ? 'before' : 'after');
@@ -272,7 +279,8 @@ export function QuickSites() {
                 role="tab"
                 aria-selected={activeGroupId === group.id}
                 aria-controls="quick-site-grid"
-                className={`quick-tab${activeGroupId === group.id ? ' is-active' : ''}`}
+                className={`quick-tab${activeGroupId === group.id ? ' is-active' : ''}${dropQuickGroupId === group.id ? ' is-drop' : ''}`}
+                data-quick-group={group.id}
                 title={group.name}
                 aria-label={t('quick.reorderHint', { t: group.name })}
                 onClick={() => selectGroup(group.id)}

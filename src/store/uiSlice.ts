@@ -16,7 +16,7 @@ export interface ToastInput {
 
 export interface DragState {
   active: boolean;
-  /** quick = 快捷磁贴（只在本区内排序）；file = 外部文件拖入 */
+  /** quick = 快捷磁贴；file = 外部文件拖入 */
   kind: 'tab' | 'bookmark' | 'quick' | 'file' | null;
   /** 被拖拽项 id（字符串化，多选时为整组） */
   ids: string[];
@@ -31,6 +31,8 @@ export interface DragState {
   dropPane: 'tab' | 'bookmark' | null;
   /** 当前指针落在快捷访问区上（标签 / 书签拖过去 = 加入快捷访问） */
   dropQuick: boolean;
+  /** 快捷磁贴正在悬停的目标分组标签 */
+  dropQuickGroupId: string | null;
 }
 
 export interface UiSlice {
@@ -65,6 +67,7 @@ const EMPTY_DRAG: DragState = {
   dropFolderId: null,
   dropPane: null,
   dropQuick: false,
+  dropQuickGroupId: null,
 };
 
 const DEFAULT_PANEL_WIDTH = 46;
