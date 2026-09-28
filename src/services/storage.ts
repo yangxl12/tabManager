@@ -41,6 +41,7 @@ export async function setLocal(key: string, value: unknown): Promise<void> {
 
 export const KEYS = {
   quickSites: 'tabnest.quickSites',
+  quickGroups: 'tabnest.quickGroups',
   collapsed: 'tabnest.collapsedFolders',
   currentFolder: 'tabnest.currentFolder',
   panelWidth: 'tabnest.panelWidth',

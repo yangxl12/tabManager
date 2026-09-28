@@ -64,6 +64,13 @@ export interface QuickSite {
   id: string;
   name: string;
   url: string;
+  /** 旧版条目无此字段，视为默认快捷访问 */
+  groupId?: string;
+}
+
+export interface QuickGroup {
+  id: string;
+  name: string;
 }
 
 export type ToastTone = 'ok' | 'warn' | 'danger';

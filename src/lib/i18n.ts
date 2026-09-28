@@ -59,6 +59,13 @@ const zh = {
   'card.del': '删除（可 Ctrl+Z 撤回）',
 
   // 快捷站点
+  'quick.groupsLabel': '快捷网站分类',
+  'quick.defaultGroup': '快捷访问',
+  'quick.addGroup': '新增分类标签',
+  'quick.groupNamePh': '分类名称，如：AI 类网站',
+  'quick.groupNeedName': '请输入分类名称',
+  'quick.groupExists': '这个分类名称已存在',
+  'quick.groupDeleteConfirm': '删除「{t}」及其中 {n} 个快捷站点？此操作无法撤回。',
   'quick.addTitle': '新增快捷站点',
   'quick.add': '新增',
   'quick.namePh': '名称，如：知乎',
@@ -239,6 +246,13 @@ const en: Record<I18nKey, string> = {
   'card.edit': 'Edit name & URL',
   'card.del': 'Delete (Ctrl+Z to undo)',
 
+  'quick.groupsLabel': 'Quick site groups',
+  'quick.defaultGroup': 'Quick Access',
+  'quick.addGroup': 'Add group tab',
+  'quick.groupNamePh': 'Group name, e.g. AI sites',
+  'quick.groupNeedName': 'Enter a group name',
+  'quick.groupExists': 'That group name already exists',
+  'quick.groupDeleteConfirm': 'Delete "{t}" and its {n} quick site(s)? This cannot be undone.',
   'quick.addTitle': 'Add quick site',
   'quick.add': 'Add',
   'quick.namePh': 'Name, e.g. GitHub',

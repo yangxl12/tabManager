@@ -44,11 +44,16 @@ export function sanitizeQuickSites(value: unknown): QuickSite[] {
   const out: QuickSite[] = [];
   for (const raw of value) {
     if (!raw || typeof raw !== 'object') continue;
-    const v = raw as { id?: unknown; name?: unknown; url?: unknown };
+    const v = raw as { id?: unknown; name?: unknown; url?: unknown; groupId?: unknown };
     if (typeof v.id !== 'string' || !v.id) continue;
     if (typeof v.name !== 'string' || typeof v.url !== 'string') continue;
     if (!v.name.trim() || !v.url.trim()) continue;
-    out.push({ id: v.id, name: v.name, url: v.url });
+    out.push({
+      id: v.id,
+      name: v.name,
+      url: v.url,
+      ...(typeof v.groupId === 'string' && v.groupId ? { groupId: v.groupId } : {}),
+    });
   }
   return out;
 }

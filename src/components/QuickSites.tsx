@@ -7,6 +7,7 @@ import { IconPencil, IconTrash } from './icons';
 import { RowMenu } from './RowMenu';
 import { Tile } from './Tile';
 import { useCardDrag, useQuickSortTarget, useQuickTarget } from '@/dnd/dnd';
+import { DEFAULT_QUICK_GROUP_ID, quickGroupOf } from '@/store/quickSlice';
 import type { QuickSite } from '@/lib/types';
 
 interface FormState {
@@ -25,10 +26,12 @@ const CLOSED: FormState = { open: false, editingId: null, name: '', url: '' };
 const QuickTile = memo(function QuickTile({
   site,
   index,
+  groupId,
   onEdit,
 }: {
   site: QuickSite;
   index: number;
+  groupId: string;
   onEdit: (site: QuickSite) => void;
 }) {
   const t = useT();
@@ -62,7 +65,7 @@ const QuickTile = memo(function QuickTile({
 
   useQuickSortTarget({
     elementRef: ref,
-    getData: () => ({ id: site.id, index }),
+    getData: () => ({ id: site.id, index, groupId }),
   });
 
   const cls = [
@@ -113,21 +116,56 @@ const QuickTile = memo(function QuickTile({
 
 export function QuickSites() {
   const t = useT();
-  const sites = useStore((s) => s.quickSites);
+  const allSites = useStore((s) => s.quickSites);
+  const groups = useStore((s) => s.quickGroups);
+  const activeGroupId = useStore((s) => s.activeQuickGroupId);
+  const setActiveGroup = useStore((s) => s.setActiveQuickGroup);
+  const addGroup = useStore((s) => s.addQuickGroup);
+  const renameGroup = useStore((s) => s.renameQuickGroup);
+  const removeGroup = useStore((s) => s.removeQuickGroup);
   const addQuick = useStore((s) => s.addQuick);
   const updateQuick = useStore((s) => s.updateQuick);
   const dropQuick = useStore((s) => s.drag.dropQuick);
   const toast = useStore((s) => s.toast);
   const [form, setForm] = useState<FormState>(CLOSED);
+  const [groupForm, setGroupForm] = useState<{ id: string | null; name: string } | null>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const groupNameRef = useRef<HTMLInputElement>(null);
+  const sites = allSites.filter((site) => quickGroupOf(site) === activeGroupId);
 
   // 标签 / 书签卡片拖到这里 = 加入快捷访问；快捷磁贴拖到空白 = 挪到末尾
-  useQuickTarget({ elementRef: paneRef });
+  useQuickTarget({ elementRef: paneRef, groupId: activeGroupId });
 
   useEffect(() => {
     if (form.open) nameRef.current?.focus();
   }, [form.open]);
+
+  useEffect(() => {
+    if (groupForm) groupNameRef.current?.focus();
+  }, [groupForm?.id]);
+
+  const selectGroup = (id: string) => {
+    setForm(CLOSED);
+    setGroupForm(null);
+    setActiveGroup(id);
+  };
+
+  const submitGroup = () => {
+    if (!groupForm) return;
+    const name = groupForm.name.trim();
+    if (!name) {
+      toast(t('quick.groupNeedName'), { tone: 'warn' });
+      return;
+    }
+    if (groups.some((g) => g.id !== groupForm.id && g.name.toLowerCase() === name.toLowerCase())) {
+      toast(t('quick.groupExists'), { tone: 'warn' });
+      return;
+    }
+    if (groupForm.id) renameGroup(groupForm.id, name);
+    else addGroup(name);
+    setGroupForm(null);
+  };
 
   const openAdd = () => {
     setForm({ open: true, editingId: null, name: '', url: '' });
@@ -148,7 +186,7 @@ export function QuickSites() {
       return;
     }
     if (form.editingId) updateQuick(form.editingId, form.name, url);
-    else addQuick(form.name, url);
+    else addQuick(form.name, url, activeGroupId);
     setForm(CLOSED);
   };
 
@@ -158,9 +196,91 @@ export function QuickSites() {
       className={`pane-quick${dropQuick ? ' is-drop' : ''}`}
       data-quick-pane="1"
     >
-      <div className="quick-grid">
+      <div className="quick-tabs">
+        <div className="quick-tabs__list" role="tablist" aria-label={t('quick.groupsLabel')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeGroupId === DEFAULT_QUICK_GROUP_ID}
+            aria-controls="quick-site-grid"
+            className={`quick-tab${activeGroupId === DEFAULT_QUICK_GROUP_ID ? ' is-active' : ''}`}
+            onClick={() => selectGroup(DEFAULT_QUICK_GROUP_ID)}
+          >
+            {t('quick.defaultGroup')}
+          </button>
+          {groups.map((group) => (
+            <div className={`quick-tab-wrap${activeGroupId === group.id ? ' is-active' : ''}`} key={group.id}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeGroupId === group.id}
+                aria-controls="quick-site-grid"
+                className={`quick-tab${activeGroupId === group.id ? ' is-active' : ''}`}
+                title={group.name}
+                onClick={() => selectGroup(group.id)}
+              >
+                {group.name}
+              </button>
+              <RowMenu
+                marker={`quick-group-${group.id}`}
+                title={t('tree.rowMore', { t: group.name })}
+                btnClass="quick-tab__more"
+                items={[
+                  {
+                    key: 'rename',
+                    label: t('tree.rename'),
+                    icon: <IconPencil size={13} />,
+                    onPick: () => setGroupForm({ id: group.id, name: group.name }),
+                  },
+                  {
+                    key: 'delete',
+                    label: t('common.delete'),
+                    icon: <IconTrash size={13} />,
+                    danger: true,
+                    onPick: () => {
+                      const count = allSites.filter((site) => quickGroupOf(site) === group.id).length;
+                      if (window.confirm(t('quick.groupDeleteConfirm', { t: group.name, n: count }))) {
+                        removeGroup(group.id);
+                        setForm(CLOSED);
+                      }
+                    },
+                  },
+                ]}
+              />
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="quick-tabs__add"
+          title={t('quick.addGroup')}
+          aria-label={t('quick.addGroup')}
+          onClick={() => setGroupForm({ id: null, name: '' })}
+        >+</button>
+      </div>
+
+      {groupForm ? (
+        <form
+          className="quick-group-form"
+          onSubmit={(e) => { e.preventDefault(); submitGroup(); }}
+        >
+          <input
+            ref={groupNameRef}
+            className="fld"
+            placeholder={t('quick.groupNamePh')}
+            maxLength={24}
+            value={groupForm.name}
+            onChange={(e) => setGroupForm((g) => g ? { ...g, name: e.target.value } : null)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setGroupForm(null); }}
+          />
+          <button className="btn btn--dark btn--sm" type="submit">{t('quick.save')}</button>
+          <button className="btn btn--sm" type="button" onClick={() => setGroupForm(null)}>{t('common.cancel')}</button>
+        </form>
+      ) : null}
+
+      <div className="quick-grid" id="quick-site-grid" role="tabpanel">
         {sites.map((s, i) => (
-          <QuickTile key={s.id} site={s} index={i} onEdit={openEdit} />
+          <QuickTile key={s.id} site={s} index={i} groupId={activeGroupId} onEdit={openEdit} />
         ))}
 
         <div

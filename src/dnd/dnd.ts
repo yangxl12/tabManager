@@ -23,6 +23,7 @@ import { attachClosestEdge, extractClosestEdge } from '@atlaskit/pragmatic-drag-
 import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element';
 import type { DropTargetRecord } from '@atlaskit/pragmatic-drag-and-drop/types';
 import { childrenOf, dropInsertIndex, reorderIds } from '@/lib/bookmarkTree';
+import { quickGroupOf } from '@/store/quickSlice';
 import { hostOf } from '@/lib/url';
 import { useStore } from '@/store';
 
@@ -59,6 +60,7 @@ interface PaneTargetData {
 /** 快捷访问区整体：标签 / 书签拖过来 = 加入快捷访问；快捷磁贴拖到空白 = 移到末尾 */
 interface QuickPaneTargetData {
   kind: 'quickPane';
+  groupId: string;
 }
 
 /** 单个快捷磁贴：只做排序 */
@@ -66,6 +68,7 @@ interface QuickTileTargetData {
   kind: 'quickTile';
   id: string;
   index: number;
+  groupId: string;
 }
 
 type AnyTargetData =
@@ -317,7 +320,9 @@ export function usePaneTarget({
  * 快捷访问区整体作为落点（磁贴本身另注册 quickTile，内层优先）。
  * 落在磁贴缝里也算命中，比只认某个磁贴宽容得多。
  */
-export function useQuickTarget({ elementRef }: { elementRef: RefObject<HTMLElement | null> }) {
+export function useQuickTarget({ elementRef, groupId }: { elementRef: RefObject<HTMLElement | null>; groupId: string }) {
+  const groupRef = useRef(groupId);
+  groupRef.current = groupId;
   useEffect(() => {
     const el = elementRef.current;
     if (!el) return;
@@ -336,11 +341,12 @@ export function useQuickTarget({ elementRef }: { elementRef: RefObject<HTMLEleme
               kind: 'quickTile',
               id: hit.cell.id,
               index: hit.cell.index,
+              groupId: groupRef.current,
               side: hit.side,
             } as unknown as Record<string, unknown>;
           }
         }
-        return { kind: 'quickPane' } as unknown as Record<string, unknown>;
+        return { kind: 'quickPane', groupId: groupRef.current } as unknown as Record<string, unknown>;
       },
       // 标签 / 书签 = 加入快捷访问；快捷磁贴 = 拖到空白处挪到末尾
       canDrop: ({ source }) => isCardDrag(source.data) || isQuickDrag(source.data),
@@ -359,7 +365,7 @@ export function useQuickSortTarget({
   getData,
 }: {
   elementRef: RefObject<HTMLElement | null>;
-  getData: () => { id: string; index: number };
+  getData: () => { id: string; index: number; groupId: string };
 }) {
   const getRef = useRef(getData);
   getRef.current = getData;
@@ -505,17 +511,18 @@ function handleDrop(source: DragSource, targets: DropTargetRecord[]): void {
   // 快捷磁贴：排序（只认磁贴 / 空白区两种落点，落到别处什么也不做）
   if (source.kind === 'quick') {
     if (d.kind === 'quickTile') {
-      const id = (d as QuickTileTargetData).id;
+      const { id, groupId } = d as QuickTileTargetData;
       if (source.ids.includes(id)) return;
-      const order = st.quickSites.map((q) => q.id);
+      const order = st.quickSites.filter((q) => quickGroupOf(q) === groupId).map((q) => q.id);
       const idx = dropInsertIndex(order, id, readSide(top.data), source.ids);
-      st.reorderQuick(reorderIds(order, source.ids, idx));
+      st.reorderQuick(reorderIds(order, source.ids, idx), groupId);
       return;
     }
     if (d.kind === 'quickPane') {
-      const order = st.quickSites.map((q) => q.id);
+      const groupId = (d as QuickPaneTargetData).groupId;
+      const order = st.quickSites.filter((q) => quickGroupOf(q) === groupId).map((q) => q.id);
       const idx = dropInsertIndex(order, null, 'after', source.ids);
-      st.reorderQuick(reorderIds(order, source.ids, idx));
+      st.reorderQuick(reorderIds(order, source.ids, idx), groupId);
     }
     return;
   }
@@ -537,7 +544,7 @@ function handleDrop(source: DragSource, targets: DropTargetRecord[]): void {
             .map((node) =>
               node && !node.isFolder ? { name: node.title || hostOf(node.url), url: node.url } : null,
             );
-    st.addQuickSites(items.filter((x): x is { name: string; url: string } => x !== null));
+    st.addQuickSites(items.filter((x): x is { name: string; url: string } => x !== null), (d as QuickPaneTargetData).groupId);
     return;
   }
 

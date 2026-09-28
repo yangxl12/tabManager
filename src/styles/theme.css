@@ -414,13 +414,92 @@ textarea {
 .pane-quick {
   --sec: var(--color-amber);
   --sec-soft: var(--color-amber-soft);
-  flex: none;
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 50%;
   /* 落点浮层（「松手加入」提示）需要定位基准 */
   position: relative;
   padding-bottom: 13px;
   border-bottom: 1px solid var(--color-line-2);
   margin-bottom: 13px;
 }
+.quick-tabs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  margin-bottom: 8px;
+  flex: none;
+}
+.quick-tabs__list {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.quick-tabs__list::-webkit-scrollbar { display: none; }
+.quick-tab-wrap { position: relative; flex: none; }
+.quick-tab {
+  display: block;
+  flex: none;
+  min-width: 0;
+  max-width: 150px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 8px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quick-tab-wrap .quick-tab { padding-right: 27px; }
+.quick-tab:hover, .quick-tab-wrap:hover .quick-tab { background: var(--color-hover); color: var(--color-ink); }
+.quick-tab.is-active { background: var(--sec-soft); color: var(--sec); }
+.quick-tab-wrap .quick-tab__more {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+}
+.quick-tab-wrap:hover .quick-tab__more,
+.quick-tab-wrap .quick-tab__more.is-open,
+.quick-tab-wrap .quick-tab__more:focus-visible { opacity: 1; }
+.quick-tabs__add {
+  width: 27px;
+  height: 27px;
+  flex: none;
+  border-radius: 8px;
+  color: var(--color-muted);
+  font-size: 20px;
+  line-height: 1;
+}
+.quick-tabs__add:hover { background: var(--sec-soft); color: var(--sec); }
+.quick-group-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex: none;
+}
+.quick-group-form .fld {
+  min-width: 0;
+  flex: 1;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-panel-soft);
+  outline: none;
+}
+.quick-group-form .fld:focus { border-color: var(--sec); }
 /* 标签 / 书签卡片拖到快捷访问区上：虚线框 + 底色，沿用书签面板 drop-ready 的语言 */
 .pane-quick.is-drop {
   background: var(--sec-soft);
@@ -443,10 +522,11 @@ textarea {
 }
 .quick-grid {
   display: grid;
+  align-content: start;
   grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
   gap: 5px;
-  /* 数量无上限：囤多了让本区自己滚，别把下面的标签列表挤没 */
-  max-height: 34vh;
+  min-height: 0;
+  flex: 0 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
