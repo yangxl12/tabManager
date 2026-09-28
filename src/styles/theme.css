@@ -1066,7 +1066,7 @@ textarea {
   pointer-events: none;
 }
 /* 内部拖拽（书签排序 / 归入文件夹）只用描边提示，不加底色，避免整个面板闪 */
-.pane-main.drop-hint::after {
+.pane-main.drop-outline::after {
   content: '';
   position: absolute;
   inset: 8px;

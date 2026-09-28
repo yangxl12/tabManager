@@ -97,7 +97,7 @@ export function BookmarkGrid({
   return (
     <div
       ref={paneRef}
-      className={`pane-main${paneReady ? ' drop-ready' : ''}${paneHint ? ' drop-hint' : ''}`}
+      className={`pane-main${paneReady ? ' drop-ready' : ''}${paneHint ? ' drop-outline' : ''}`}
       data-bm-pane="1"
     >
       <div className="sec-head">
