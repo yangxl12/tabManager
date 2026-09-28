@@ -5,7 +5,7 @@ import { normalizeTheme } from '@/lib/theme';
 import { normalizeLang, setLangMirror, t } from '@/lib/i18n';
 import { normalizeNoteWidth } from '@/lib/noteMirror';
 import type { QuickSite } from '@/lib/types';
-import { DEFAULT_QUICK_GROUP_ID, ensureCuratedQuickGroups, sanitizeQuickGroups } from './quickSlice';
+import { DEFAULT_QUICK_GROUP_ID, ensureCuratedQuickGroups, rehomeQuickSites, sanitizeQuickGroups } from './quickSlice';
 import { createBookmarksSlice, type BookmarksSlice } from './bookmarksSlice';
 import { createQuickSlice, type QuickSlice } from './quickSlice';
 import { createTabsSlice, type TabsSlice } from './tabsSlice';
@@ -49,7 +49,7 @@ export async function bootstrapStore(): Promise<void> {
   subscribeLocal((changes) => {
     if (changes[KEYS.quickSites]) {
       const next = changes[KEYS.quickSites].newValue as QuickSite[] | undefined;
-      if (Array.isArray(next)) useStore.setState((st) => void (st.quickSites = next));
+      if (Array.isArray(next)) useStore.setState((st) => void (st.quickSites = rehomeQuickSites(next, st.quickGroups)));
     }
     if (changes[KEYS.quickGroups]) {
       const next = ensureCuratedQuickGroups(sanitizeQuickGroups(changes[KEYS.quickGroups].newValue));

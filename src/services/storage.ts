@@ -43,6 +43,7 @@ export const KEYS = {
   quickSites: 'tabnest.quickSites',
   quickGroups: 'tabnest.quickGroups',
   curatedQuickSeeded: 'tabnest.curatedQuickSeeded.v1',
+  curatedQuickSeededV2: 'tabnest.curatedQuickSeeded.v2',
   collapsed: 'tabnest.collapsedFolders',
   currentFolder: 'tabnest.currentFolder',
   panelWidth: 'tabnest.panelWidth',

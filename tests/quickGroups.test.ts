@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '@/store';
 import { sanitizeQuickSites } from '@/lib/quickSite';
 import { CURATED_QUICK_GROUPS } from '@/lib/curatedQuickSites';
-import { DEFAULT_QUICK_GROUP_ID, ensureCuratedQuickGroups, quickGroupOf, sanitizeQuickGroups } from '@/store/quickSlice';
+import { DEFAULT_QUICK_GROUP_ID, ensureCuratedQuickGroups, quickGroupOf, rehomeQuickSites, sanitizeQuickGroups } from '@/store/quickSlice';
 
 beforeEach(() => {
   useStore.setState({
@@ -18,6 +18,15 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('快捷访问分类', () => {
+  it('只内置四个精选分类，每类提供至少二十个不同网址', () => {
+    expect(CURATED_QUICK_GROUPS.map((group) => group.name))
+      .toEqual(['AI 助手', '精选资讯', '学习成长', '设计创作']);
+    for (const group of CURATED_QUICK_GROUPS) {
+      expect(group.sites.length).toBeGreaterThanOrEqual(20);
+      expect(new Set(group.sites.map((site) => site.url)).size).toBe(group.sites.length);
+    }
+  });
+
   it('旧站点留在默认标签；新标签独立新增、重命名和删除', () => {
     const s = useStore.getState();
     expect(quickGroupOf(s.quickSites[0])).toBe(DEFAULT_QUICK_GROUP_ID);
@@ -103,8 +112,8 @@ describe('快捷访问分类', () => {
     expect(useStore.getState().quickGroups.map((g) => g.id))
       .toEqual([groupId, ...CURATED_QUICK_GROUPS.map((g) => g.id)]);
     expect(useStore.getState().quickSites.find((q) => q.name === 'OpenAI')).toMatchObject({ groupId });
-    expect(useStore.getState().quickSites.filter((q) => q.groupId === 'featured-ai')).toHaveLength(6);
-    expect(storage['tabnest.curatedQuickSeeded.v1']).toBe(true);
+    expect(useStore.getState().quickSites.filter((q) => q.groupId === 'featured-ai')).toHaveLength(20);
+    expect(storage['tabnest.curatedQuickSeeded.v2']).toBe(true);
 
     s.setQuickGroupHidden('featured-ai', true);
     s.reorderQuickGroups(['featured-news', groupId, ...CURATED_QUICK_GROUPS.map((g) => g.id)]);
@@ -121,5 +130,49 @@ describe('快捷访问分类', () => {
     storage['tabnest.quickSites'] = [];
     await useStore.getState().initQuick();
     expect(useStore.getState().quickSites).toEqual([]);
+  });
+
+  it('旧版三类精选标签退出后，原站点回到默认标签，保留自建分类和删除选择', async () => {
+    const storage: Record<string, unknown> = {
+      'tabnest.curatedQuickSeeded.v1': true,
+      'tabnest.quickGroups': [
+        { id: 'featured-ai', name: 'AI 助手', hidden: true },
+        { id: 'featured-design', name: '设计创作' },
+        { id: 'featured-dev', name: '开发工具' },
+        { id: 'featured-work', name: '效率协作' },
+        { id: 'featured-learn', name: '学习成长' },
+        { id: 'featured-assets', name: '创意素材' },
+        { id: 'featured-news', name: '精选资讯' },
+        { id: 'mine', name: '我的分类' },
+      ],
+      'tabnest.quickSites': [
+        { id: 'ai-old', name: 'ChatGPT', url: 'https://chatgpt.com/', groupId: 'featured-ai' },
+        { id: 'dev-old', name: 'GitHub', url: 'https://github.com/', groupId: 'featured-dev' },
+        { id: 'dev-added', name: '我的开发站', url: 'https://example.dev/', groupId: 'featured-dev' },
+        { id: 'mine-old', name: '我的站', url: 'https://mine.example/', groupId: 'mine' },
+      ],
+    };
+    vi.stubGlobal('chrome', {
+      storage: { local: {
+        get: async (key: string) => key in storage ? { [key]: storage[key] } : {},
+        set: async (items: Record<string, unknown>) => { Object.assign(storage, items); },
+      } },
+      tabs: {}, bookmarks: {},
+    });
+
+    await useStore.getState().initQuick();
+    const state = useStore.getState();
+    expect(state.quickGroups.map((group) => group.id))
+      .toEqual(['featured-ai', 'featured-design', 'featured-learn', 'featured-news', 'mine']);
+    expect(state.quickGroups[0].hidden).toBe(true);
+    expect(state.quickSites.filter((site) => ['dev-old', 'dev-added'].includes(site.id))
+      .map((site) => quickGroupOf(site))).toEqual(['default', 'default']);
+    expect(state.quickSites.find((site) => site.id === 'mine-old')?.groupId).toBe('mine');
+    expect(state.quickSites.filter((site) => site.groupId === 'featured-ai' && site.name === 'Claude'))
+      .toEqual([]);
+    expect(state.quickSites.filter((site) => site.groupId === 'featured-ai')).toHaveLength(15);
+    expect(storage['tabnest.curatedQuickSeeded.v2']).toBe(true);
+    expect(rehomeQuickSites([{ id: 'x', name: 'X', url: 'https://x.com', groupId: 'featured-work' }], state.quickGroups)[0].groupId)
+      .toBe(DEFAULT_QUICK_GROUP_ID);
   });
 });

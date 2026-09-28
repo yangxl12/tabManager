@@ -1,7 +1,7 @@
 import { uid } from '@/lib/id';
 import { t } from '@/lib/i18n';
 import { collectQuickSites, sanitizeQuickSites } from '@/lib/quickSite';
-import { CURATED_QUICK_GROUPS, CURATED_QUICK_GROUP_IDS } from '@/lib/curatedQuickSites';
+import { CURATED_QUICK_GROUPS, CURATED_QUICK_GROUP_IDS, FIRST_CURATED_SITE_URLS, RETIRED_CURATED_QUICK_GROUP_IDS } from '@/lib/curatedQuickSites';
 import { KEYS, getLocal, getLocalArray, setLocal } from '@/services/storage';
 import type { QuickGroup, QuickSite } from '@/lib/types';
 import type { SliceCreator } from './slice';
@@ -39,11 +39,19 @@ export function sanitizeQuickGroups(value: unknown): QuickGroup[] {
 
 /** 精选分类不允许删除；若旧存储中没有，则追加到原有分类之后。 */
 export function ensureCuratedQuickGroups(groups: QuickGroup[]): QuickGroup[] {
-  const ids = new Set(groups.map((group) => group.id));
+  const kept = groups.filter((group) => !RETIRED_CURATED_QUICK_GROUP_IDS.has(group.id));
+  const ids = new Set(kept.map((group) => group.id));
   return [
-    ...groups,
+    ...kept,
     ...CURATED_QUICK_GROUPS.filter((group) => !ids.has(group.id)).map(({ id, name }) => ({ id, name })),
   ];
+}
+
+/** 已取消的精选分类及其他无效归属回到默认标签，保留用户站点。 */
+export function rehomeQuickSites(sites: QuickSite[], groups: QuickGroup[]): QuickSite[] {
+  const ids = new Set(groups.map((group) => group.id));
+  return sites.map((site) => site.groupId && !ids.has(site.groupId)
+    ? { ...site, groupId: DEFAULT_QUICK_GROUP_ID } : site);
 }
 
 export interface QuickSlice {
@@ -212,23 +220,25 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
 
   async initQuick() {
     // 未存过时显示默认站点；用户清空后存下的 [] 必须保持为空。
-    const [storedSites, storedGroups, curatedSeeded] = await Promise.all([
+    const [storedSites, storedGroups, curatedSeededV1, curatedSeededV2] = await Promise.all([
       getLocal<unknown>(KEYS.quickSites, null),
       getLocalArray<unknown>(KEYS.quickGroups),
       getLocal<boolean>(KEYS.curatedQuickSeeded, false),
+      getLocal<boolean>(KEYS.curatedQuickSeededV2, false),
     ]);
     const existingGroups = sanitizeQuickGroups(storedGroups);
     const groups = ensureCuratedQuickGroups(existingGroups);
-    const groupIds = new Set(groups.map((g) => g.id));
-    const stored = sanitizeQuickSites(storedSites).map((q) =>
-      q.groupId && !groupIds.has(q.groupId) ? { ...q, groupId: DEFAULT_QUICK_GROUP_ID } : q,
-    );
+    const rawSites = sanitizeQuickSites(storedSites);
+    const stored = rehomeQuickSites(rawSites, groups);
     const sites: QuickSite[] = Array.isArray(storedSites) && (stored.length || storedSites.length === 0)
       ? stored : DEFAULT_SITES.map((site) => ({ id: uid('q'), ...site }));
-    if (!curatedSeeded) {
+    if (!curatedSeededV2) {
       for (const group of CURATED_QUICK_GROUPS) {
+        const candidates = curatedSeededV1
+          ? group.sites.filter((site) => !FIRST_CURATED_SITE_URLS[group.id]?.has(site.url))
+          : group.sites;
         const additions = collectQuickSites(
-          sites.filter((site) => quickGroupOf(site) === group.id), [...group.sites],
+          sites.filter((site) => quickGroupOf(site) === group.id), [...candidates],
         ).add;
         for (const site of additions) sites.push({ id: uid('q'), ...site, groupId: group.id });
       }
@@ -238,10 +248,12 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       s.quickGroups = groups;
       s.quickLoaded = true;
     });
-    if (groups.length !== existingGroups.length) await setLocal(KEYS.quickGroups, groups);
-    if (!curatedSeeded) {
+    if (JSON.stringify(groups) !== JSON.stringify(existingGroups)) await setLocal(KEYS.quickGroups, groups);
+    if (!curatedSeededV2 || JSON.stringify(stored) !== JSON.stringify(rawSites)) {
       await setLocal(KEYS.quickSites, sites);
-      await setLocal(KEYS.curatedQuickSeeded, true);
+    }
+    if (!curatedSeededV2) {
+      await setLocal(KEYS.curatedQuickSeededV2, true);
     }
   },
 });
