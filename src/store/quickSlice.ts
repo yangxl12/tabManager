@@ -1,6 +1,7 @@
 import { uid } from '@/lib/id';
 import { t } from '@/lib/i18n';
 import { collectQuickSites, sanitizeQuickSites } from '@/lib/quickSite';
+import { CURATED_QUICK_GROUPS, CURATED_QUICK_GROUP_IDS } from '@/lib/curatedQuickSites';
 import { KEYS, getLocal, getLocalArray, setLocal } from '@/services/storage';
 import type { QuickGroup, QuickSite } from '@/lib/types';
 import type { SliceCreator } from './slice';
@@ -27,12 +28,22 @@ export function sanitizeQuickGroups(value: unknown): QuickGroup[] {
   const seen = new Set<string>();
   return value.flatMap((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return [];
-    const { id, name } = raw as { id?: unknown; name?: unknown };
+    const { id, name, hidden } = raw as { id?: unknown; name?: unknown; hidden?: unknown };
     if (typeof id !== 'string' || !id || id === DEFAULT_QUICK_GROUP_ID || seen.has(id)) return [];
     if (typeof name !== 'string' || !name.trim()) return [];
     seen.add(id);
-    return [{ id, name: name.trim().slice(0, 24) }];
+    const curated = CURATED_QUICK_GROUPS.find((group) => group.id === id);
+    return [{ id, name: curated?.name ?? name.trim().slice(0, 24), ...(hidden === true ? { hidden: true } : {}) }];
   });
+}
+
+/** 精选分类不允许删除；若旧存储中没有，则追加到原有分类之后。 */
+export function ensureCuratedQuickGroups(groups: QuickGroup[]): QuickGroup[] {
+  const ids = new Set(groups.map((group) => group.id));
+  return [
+    ...groups,
+    ...CURATED_QUICK_GROUPS.filter((group) => !ids.has(group.id)).map(({ id, name }) => ({ id, name })),
+  ];
 }
 
 export interface QuickSlice {
@@ -44,6 +55,8 @@ export interface QuickSlice {
   addQuickGroup: (name: string) => void;
   renameQuickGroup: (id: string, name: string) => void;
   removeQuickGroup: (id: string) => void;
+  setQuickGroupHidden: (id: string, hidden: boolean) => void;
+  reorderQuickGroups: (desired: string[]) => void;
   addQuick: (name: string, url: string, groupId?: string) => void;
   /** 批量加入（拖拽落点用）：按 URL 去重，自动补名，结果用 toast 反馈 */
   addQuickSites: (items: Array<{ name: string; url: string }>, groupId?: string) => void;
@@ -61,7 +74,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
   quickLoaded: false,
 
   setActiveQuickGroup(id) {
-    if (id !== DEFAULT_QUICK_GROUP_ID && !get().quickGroups.some((g) => g.id === id)) return;
+    if (id !== DEFAULT_QUICK_GROUP_ID && !get().quickGroups.some((g) => g.id === id && !g.hidden)) return;
     set((s) => { s.activeQuickGroupId = id; });
   },
 
@@ -78,7 +91,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
 
   renameQuickGroup(id, name) {
     const clean = name.trim().slice(0, 24);
-    if (!clean || id === DEFAULT_QUICK_GROUP_ID) return;
+    if (!clean || id === DEFAULT_QUICK_GROUP_ID || CURATED_QUICK_GROUP_IDS.has(id)) return;
     if (get().quickGroups.some((g) => g.id !== id && g.name.toLowerCase() === clean.toLowerCase())) return;
     set((s) => {
       const group = s.quickGroups.find((g) => g.id === id);
@@ -88,7 +101,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
   },
 
   removeQuickGroup(id) {
-    if (id === DEFAULT_QUICK_GROUP_ID || !get().quickGroups.some((g) => g.id === id)) return;
+    if (id === DEFAULT_QUICK_GROUP_ID || CURATED_QUICK_GROUP_IDS.has(id) || !get().quickGroups.some((g) => g.id === id)) return;
     set((s) => {
       s.quickGroups = s.quickGroups.filter((g) => g.id !== id);
       s.quickSites = s.quickSites.filter((q) => quickGroupOf(q) !== id);
@@ -96,6 +109,34 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
     });
     void setLocal(KEYS.quickGroups, get().quickGroups);
     void setLocal(KEYS.quickSites, get().quickSites);
+  },
+
+  setQuickGroupHidden(id, hidden) {
+    if (id === DEFAULT_QUICK_GROUP_ID || !get().quickGroups.some((g) => g.id === id)) return;
+    set((s) => {
+      const group = s.quickGroups.find((g) => g.id === id);
+      if (group) group.hidden = hidden;
+      if (hidden && s.activeQuickGroupId === id) s.activeQuickGroupId = DEFAULT_QUICK_GROUP_ID;
+    });
+    void setLocal(KEYS.quickGroups, get().quickGroups);
+  },
+
+  reorderQuickGroups(desired) {
+    const groups = get().quickGroups;
+    const byId = new Map(groups.map((group) => [group.id, group]));
+    const seen = new Set<string>();
+    const ordered: QuickGroup[] = [];
+    for (const id of desired) {
+      const group = byId.get(id);
+      if (group && !seen.has(id)) {
+        ordered.push(group);
+        seen.add(id);
+      }
+    }
+    for (const group of groups) if (!seen.has(group.id)) ordered.push(group);
+    if (ordered.every((group, index) => group.id === groups[index].id)) return;
+    set((s) => { s.quickGroups = ordered; });
+    void setLocal(KEYS.quickGroups, get().quickGroups);
   },
 
   // 快捷访问不设数量上限：多了由用户自己删，别用软上限拦人（拖拽批量加入时尤其别扭）
@@ -171,21 +212,36 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
 
   async initQuick() {
     // 未存过时显示默认站点；用户清空后存下的 [] 必须保持为空。
-    const [storedSites, storedGroups] = await Promise.all([
+    const [storedSites, storedGroups, curatedSeeded] = await Promise.all([
       getLocal<unknown>(KEYS.quickSites, null),
       getLocalArray<unknown>(KEYS.quickGroups),
+      getLocal<boolean>(KEYS.curatedQuickSeeded, false),
     ]);
-    const groups = sanitizeQuickGroups(storedGroups);
+    const existingGroups = sanitizeQuickGroups(storedGroups);
+    const groups = ensureCuratedQuickGroups(existingGroups);
     const groupIds = new Set(groups.map((g) => g.id));
     const stored = sanitizeQuickSites(storedSites).map((q) =>
       q.groupId && !groupIds.has(q.groupId) ? { ...q, groupId: DEFAULT_QUICK_GROUP_ID } : q,
     );
-    set((s) => {
-      if (Array.isArray(storedSites) && (stored.length || storedSites.length === 0)) {
-        s.quickSites = stored;
+    const sites: QuickSite[] = Array.isArray(storedSites) && (stored.length || storedSites.length === 0)
+      ? stored : DEFAULT_SITES.map((site) => ({ id: uid('q'), ...site }));
+    if (!curatedSeeded) {
+      for (const group of CURATED_QUICK_GROUPS) {
+        const additions = collectQuickSites(
+          sites.filter((site) => quickGroupOf(site) === group.id), [...group.sites],
+        ).add;
+        for (const site of additions) sites.push({ id: uid('q'), ...site, groupId: group.id });
       }
+    }
+    set((s) => {
+      s.quickSites = sites;
       s.quickGroups = groups;
       s.quickLoaded = true;
     });
+    if (groups.length !== existingGroups.length) await setLocal(KEYS.quickGroups, groups);
+    if (!curatedSeeded) {
+      await setLocal(KEYS.quickSites, sites);
+      await setLocal(KEYS.curatedQuickSeeded, true);
+    }
   },
 });

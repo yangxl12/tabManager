@@ -3,11 +3,12 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useStore, useT } from '@/store';
 import { colorFor } from '@/lib/colors';
 import { hostOf, normalizeUrl } from '@/lib/url';
-import { IconPencil, IconTrash } from './icons';
+import { IconEye, IconEyeOff, IconPencil, IconTrash } from './icons';
 import { RowMenu } from './RowMenu';
 import { Tile } from './Tile';
 import { useCardDrag, useQuickSortTarget, useQuickTarget } from '@/dnd/dnd';
 import { DEFAULT_QUICK_GROUP_ID, quickGroupOf } from '@/store/quickSlice';
+import { CURATED_QUICK_GROUP_IDS } from '@/lib/curatedQuickSites';
 import type { QuickSite } from '@/lib/types';
 
 interface FormState {
@@ -123,16 +124,23 @@ export function QuickSites() {
   const addGroup = useStore((s) => s.addQuickGroup);
   const renameGroup = useStore((s) => s.renameQuickGroup);
   const removeGroup = useStore((s) => s.removeQuickGroup);
+  const setGroupHidden = useStore((s) => s.setQuickGroupHidden);
+  const reorderGroups = useStore((s) => s.reorderQuickGroups);
   const addQuick = useStore((s) => s.addQuick);
   const updateQuick = useStore((s) => s.updateQuick);
   const dropQuick = useStore((s) => s.drag.dropQuick);
   const toast = useStore((s) => s.toast);
   const [form, setForm] = useState<FormState>(CLOSED);
   const [groupForm, setGroupForm] = useState<{ id: string | null; name: string } | null>(null);
+  const [dragGroupId, setDragGroupId] = useState<string | null>(null);
+  const [dropGroup, setDropGroup] = useState<{ id: string; side: 'before' | 'after' } | null>(null);
   const paneRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const groupNameRef = useRef<HTMLInputElement>(null);
   const sites = allSites.filter((site) => quickGroupOf(site) === activeGroupId);
+  const visibleGroups = groups.filter((group) => !group.hidden);
+  const hiddenGroups = groups.filter((group) => group.hidden);
 
   // 标签 / 书签卡片拖到这里 = 加入快捷访问；快捷磁贴拖到空白 = 挪到末尾
   useQuickTarget({ elementRef: paneRef, groupId: activeGroupId });
@@ -149,6 +157,21 @@ export function QuickSites() {
     setForm(CLOSED);
     setGroupForm(null);
     setActiveGroup(id);
+  };
+
+  const finishGroupDrag = () => {
+    setDragGroupId(null);
+    setDropGroup(null);
+  };
+
+  const dropOnGroup = (targetId: string, side: 'before' | 'after') => {
+    if (!dragGroupId || dragGroupId === targetId) return;
+    const visibleIds = visibleGroups.map((group) => group.id).filter((id) => id !== dragGroupId);
+    const index = visibleIds.indexOf(targetId);
+    if (index < 0) return;
+    visibleIds.splice(index + (side === 'after' ? 1 : 0), 0, dragGroupId);
+    let cursor = 0;
+    reorderGroups(groups.map((group) => group.hidden ? group.id : visibleIds[cursor++]));
   };
 
   const submitGroup = () => {
@@ -196,20 +219,54 @@ export function QuickSites() {
       className={`pane-quick${dropQuick ? ' is-drop' : ''}`}
       data-quick-pane="1"
     >
-      <div className="quick-tabs">
-        <div className="quick-tabs__list" role="tablist" aria-label={t('quick.groupsLabel')}>
-          <button
+      <div className="quick-tabs" role="tablist" aria-label={t('quick.groupsLabel')}>
+        <button
             type="button"
             role="tab"
             aria-selected={activeGroupId === DEFAULT_QUICK_GROUP_ID}
             aria-controls="quick-site-grid"
-            className={`quick-tab${activeGroupId === DEFAULT_QUICK_GROUP_ID ? ' is-active' : ''}`}
+            className={`quick-tab quick-tab--fixed${activeGroupId === DEFAULT_QUICK_GROUP_ID ? ' is-active' : ''}`}
             onClick={() => selectGroup(DEFAULT_QUICK_GROUP_ID)}
           >
             {t('quick.defaultGroup')}
           </button>
-          {groups.map((group) => (
-            <div className={`quick-tab-wrap${activeGroupId === group.id ? ' is-active' : ''}`} key={group.id}>
+        <div
+          ref={tabsRef}
+          className="quick-tabs__list"
+          onWheel={(event) => {
+            if (!tabsRef.current || tabsRef.current.scrollWidth <= tabsRef.current.clientWidth || !event.deltaY) return;
+            tabsRef.current.scrollLeft += event.deltaY;
+          }}
+        >
+          {visibleGroups.map((group) => (
+            <div
+              className={`quick-tab-wrap${activeGroupId === group.id ? ' is-active' : ''}${dragGroupId === group.id ? ' is-dragging' : ''}${dropGroup?.id === group.id ? ` drop-${dropGroup.side}` : ''}`}
+              key={group.id}
+              draggable
+              onDragStart={(event) => {
+                if ((event.target as HTMLElement).closest('.quick-tab__more')) {
+                  event.preventDefault();
+                  return;
+                }
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('application/x-tabnest-quick-group', group.id);
+                setDragGroupId(group.id);
+              }}
+              onDragOver={(event) => {
+                if (!dragGroupId || dragGroupId === group.id) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                const rect = event.currentTarget.getBoundingClientRect();
+                setDropGroup({ id: group.id, side: event.clientX < rect.left + rect.width / 2 ? 'before' : 'after' });
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const rect = event.currentTarget.getBoundingClientRect();
+                dropOnGroup(group.id, event.clientX < rect.left + rect.width / 2 ? 'before' : 'after');
+                finishGroupDrag();
+              }}
+              onDragEnd={finishGroupDrag}
+            >
               <button
                 type="button"
                 role="tab"
@@ -217,6 +274,7 @@ export function QuickSites() {
                 aria-controls="quick-site-grid"
                 className={`quick-tab${activeGroupId === group.id ? ' is-active' : ''}`}
                 title={group.name}
+                aria-label={t('quick.reorderHint', { t: group.name })}
                 onClick={() => selectGroup(group.id)}
               >
                 {group.name}
@@ -226,13 +284,14 @@ export function QuickSites() {
                 title={t('tree.rowMore', { t: group.name })}
                 btnClass="quick-tab__more"
                 items={[
-                  {
+                  ...(!CURATED_QUICK_GROUP_IDS.has(group.id) ? [{
                     key: 'rename',
                     label: t('tree.rename'),
                     icon: <IconPencil size={13} />,
                     onPick: () => setGroupForm({ id: group.id, name: group.name }),
-                  },
-                  {
+                  }] : []),
+                  { key: 'hide', label: t('quick.hideGroup'), icon: <IconEyeOff size={13} />, onPick: () => setGroupHidden(group.id, true) },
+                  ...(!CURATED_QUICK_GROUP_IDS.has(group.id) ? [{
                     key: 'delete',
                     label: t('common.delete'),
                     icon: <IconTrash size={13} />,
@@ -244,12 +303,26 @@ export function QuickSites() {
                         setForm(CLOSED);
                       }
                     },
-                  },
+                  }] : []),
                 ]}
               />
             </div>
           ))}
         </div>
+        {hiddenGroups.length > 0 ? (
+          <RowMenu
+            marker="quick-hidden-groups"
+            title={t('quick.hiddenGroups', { n: hiddenGroups.length })}
+            btnClass="quick-tabs__hidden"
+            trigger={<><IconEye size={14} /><span>{hiddenGroups.length}</span></>}
+            items={hiddenGroups.map((group) => ({
+              key: group.id,
+              label: t('quick.showGroup', { t: group.name }),
+              icon: <IconEye size={13} />,
+              onPick: () => setGroupHidden(group.id, false),
+            }))}
+          />
+        ) : null}
         <button
           type="button"
           className="quick-tabs__add"

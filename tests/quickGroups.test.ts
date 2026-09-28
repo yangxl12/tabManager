@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '@/store';
 import { sanitizeQuickSites } from '@/lib/quickSite';
-import { DEFAULT_QUICK_GROUP_ID, quickGroupOf, sanitizeQuickGroups } from '@/store/quickSlice';
+import { CURATED_QUICK_GROUPS } from '@/lib/curatedQuickSites';
+import { DEFAULT_QUICK_GROUP_ID, ensureCuratedQuickGroups, quickGroupOf, sanitizeQuickGroups } from '@/store/quickSlice';
 
 beforeEach(() => {
   useStore.setState({
@@ -55,6 +56,30 @@ describe('快捷访问分类', () => {
       .toEqual([{ id: 'q1', name: 'AI', url: 'https://example.com', groupId: 'g1' }]);
     expect(sanitizeQuickGroups([{ id: 'g1', name: ' AI ' }, { id: 'g1', name: '重复' }, { id: 'default', name: '错误' }]))
       .toEqual([{ id: 'g1', name: 'AI' }]);
+    expect(sanitizeQuickGroups([{ id: 'featured-ai', name: '篡改', hidden: true }]))
+      .toEqual([{ id: 'featured-ai', name: 'AI 助手', hidden: true }]);
+  });
+
+  it('精选分类不能删除或改名，可以隐藏、恢复和排序；默认分类保持固定', () => {
+    useStore.setState({ quickGroups: ensureCuratedQuickGroups([{ id: 'mine', name: '我的分类' }]) });
+    const s = useStore.getState();
+    s.removeQuickGroup('featured-ai');
+    s.renameQuickGroup('featured-ai', '改名');
+    expect(useStore.getState().quickGroups.find((g) => g.id === 'featured-ai')?.name).toBe('AI 助手');
+
+    s.setActiveQuickGroup('featured-ai');
+    s.setQuickGroupHidden('featured-ai', true);
+    expect(useStore.getState().activeQuickGroupId).toBe(DEFAULT_QUICK_GROUP_ID);
+    s.setActiveQuickGroup('featured-ai');
+    expect(useStore.getState().activeQuickGroupId).toBe(DEFAULT_QUICK_GROUP_ID);
+    s.setQuickGroupHidden('featured-ai', false);
+    s.setActiveQuickGroup('featured-ai');
+    expect(useStore.getState().activeQuickGroupId).toBe('featured-ai');
+
+    const order = useStore.getState().quickGroups.map((g) => g.id);
+    s.reorderQuickGroups(['featured-news', ...order]);
+    expect(useStore.getState().quickGroups[0].id).toBe('featured-news');
+    expect(useStore.getState().quickGroups).toHaveLength(order.length);
   });
 
   it('保存后重新初始化能读回分类及站点，空站点列表不会复活默认项', async () => {
@@ -75,8 +100,22 @@ describe('快捷访问分类', () => {
     const groupId = useStore.getState().activeQuickGroupId;
     useStore.setState({ quickGroups: [], quickSites: [], activeQuickGroupId: DEFAULT_QUICK_GROUP_ID });
     await useStore.getState().initQuick();
-    expect(useStore.getState().quickGroups).toEqual([{ id: groupId, name: 'AI' }]);
-    expect(useStore.getState().quickSites.at(-1)).toMatchObject({ name: 'OpenAI', groupId });
+    expect(useStore.getState().quickGroups.map((g) => g.id))
+      .toEqual([groupId, ...CURATED_QUICK_GROUPS.map((g) => g.id)]);
+    expect(useStore.getState().quickSites.find((q) => q.name === 'OpenAI')).toMatchObject({ groupId });
+    expect(useStore.getState().quickSites.filter((q) => q.groupId === 'featured-ai')).toHaveLength(6);
+    expect(storage['tabnest.curatedQuickSeeded.v1']).toBe(true);
+
+    s.setQuickGroupHidden('featured-ai', true);
+    s.reorderQuickGroups(['featured-news', groupId, ...CURATED_QUICK_GROUPS.map((g) => g.id)]);
+    await useStore.getState().initQuick();
+    expect(useStore.getState().quickGroups[0].id).toBe('featured-news');
+    expect(useStore.getState().quickGroups.find((g) => g.id === 'featured-ai')?.hidden).toBe(true);
+
+    const firstCuratedSite = useStore.getState().quickSites.find((q) => q.groupId === 'featured-ai')!;
+    s.removeQuick(firstCuratedSite.id);
+    await useStore.getState().initQuick();
+    expect(useStore.getState().quickSites.some((q) => q.id === firstCuratedSite.id)).toBe(false);
 
     useStore.setState({ quickSites: [] });
     storage['tabnest.quickSites'] = [];

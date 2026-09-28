@@ -66,6 +66,24 @@ export function IconTrash({ size = 13, className }: IconProps) {
   );
 }
 
+export function IconEye({ size = 14, className }: IconProps) {
+  return (
+    <svg {...S(size)} className={className}>
+      <path d="M1.5 8s2.4-3.7 6.5-3.7S14.5 8 14.5 8 12.1 11.7 8 11.7 1.5 8 1.5 8Z" />
+      <circle cx="8" cy="8" r="1.7" />
+    </svg>
+  );
+}
+
+export function IconEyeOff({ size = 14, className }: IconProps) {
+  return (
+    <svg {...S(size)} className={className}>
+      <path d="M2 2l12 12M5.2 5.2C3.1 6.2 1.5 8 1.5 8s2.4 3.7 6.5 3.7c1 0 1.9-.2 2.7-.6M7 4.4c.3-.1.7-.1 1-.1 4.1 0 6.5 3.7 6.5 3.7s-.5.8-1.5 1.6" />
+      <path d="M6.9 6.9a1.6 1.6 0 0 0 2.2 2.2" />
+    </svg>
+  );
+}
+
 export function IconChevron({ size = 9, className }: IconProps) {
   return (
     <svg
