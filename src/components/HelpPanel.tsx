@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore, useT } from '@/store';
 import type { I18nKey } from '@/lib/i18n';
@@ -20,10 +21,29 @@ export function HelpPanel() {
   const t = useT();
   const open = useStore((s) => s.helpOpen);
   const setHelpOpen = useStore((s) => s.setHelpOpen);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target;
+      if (!(target instanceof Node) || panelRef.current?.contains(target)) return;
+      // 帮助菜单项本身负责切换，避免 mousedown 关闭后 click 又重新打开。
+      if (
+        target instanceof Element &&
+        target.closest('.row-menu[data-row-menu="tools"] [data-row-item="help"]')
+      ) return;
+      setHelpOpen(false);
+    };
+    document.addEventListener('mousedown', onDown, true);
+    return () => document.removeEventListener('mousedown', onDown, true);
+  }, [open, setHelpOpen]);
+
   return (
     <AnimatePresence>
       {open ? (
         <motion.div
+          ref={panelRef}
           key="help"
           className="help"
           initial={{ opacity: 0 }}
