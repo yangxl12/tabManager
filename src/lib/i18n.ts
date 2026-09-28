@@ -28,8 +28,6 @@ const zh = {
   'tabs.multiHint': '多选模式 · 单击卡片即勾选，不再打开网站',
   'tabs.clearSel': '取消选择',
   'tabs.closeSel': '关闭选中',
-  'tabs.hint': '拖拽排序 · 拖到右侧存为书签',
-  'tabs.helpTitle': '快捷键与操作（Esc 关闭）',
   'tabs.emptyT': '没有正在打开的标签',
   'tabs.emptyS': '打开新的网页后，这里会自动出现卡片',
   'tab.close': '关闭标签',
@@ -48,7 +46,6 @@ const zh = {
   // 书签网格
   'bm.fallbackTitle': '书签',
   'bm.multiHint': '多选模式 · 单击卡片即勾选',
-  'bm.searchTitle': '全局搜索书签（Ctrl+K）',
   'bm.delSel': '删除选中 · {n}',
   'bm.import': '导入 JSON',
   'bm.emptyT': '这个文件夹还是空的',
@@ -154,11 +151,19 @@ const zh = {
   'help.ctrlMulti': '按住 Ctrl 点击标签卡片',
   'help.ctrlMultiHint': '多选后整组排序',
 
-  // 主题菜单
-  'theme.tip': '主题：{m}（点击切换）',
+  // 主题（明亮 / 暗黑 / 跟随系统）—— 入口收在书签面板的「三个点」菜单里
   'theme.light': '明亮',
   'theme.dark': '暗黑',
   'theme.system': '跟随系统',
+
+  // 书签面板右上角「三个点」：搜索 / 语言 / 主题 / 导入的收纳入口
+  'tools.tip': '更多工具',
+  'tools.search': '搜索书签',
+  'tools.lang': '界面语言',
+  'tools.theme': '主题',
+  'tools.help': '快捷键与操作',
+  'lang.zh': '中文',
+  'lang.en': 'English',
 
   // 分隔条
   'split.title': '拖动调整宽度',
@@ -196,9 +201,6 @@ const zh = {
 
   // 新建文件夹的默认名（会成为真实书签名）
   'bm.newFolder': '新建文件夹',
-
-  // 语言切换按钮：故意「互文」——zh 里写英文目标、en 里写中文目标
-  'lang.tip': 'Switch to English',
 } as const;
 
 export type I18nKey = keyof typeof zh;
@@ -218,8 +220,6 @@ const en: Record<I18nKey, string> = {
   'tabs.multiHint': 'Multi-select · click cards to select, they won\u2019t open',
   'tabs.clearSel': 'Clear selection',
   'tabs.closeSel': 'Close selected',
-  'tabs.hint': 'Drag to reorder · drag right to bookmark',
-  'tabs.helpTitle': 'Shortcuts & actions (Esc to close)',
   'tabs.emptyT': 'No open tabs',
   'tabs.emptyS': 'Cards will show up here as you open pages',
   'tab.close': 'Close tab',
@@ -236,7 +236,6 @@ const en: Record<I18nKey, string> = {
 
   'bm.fallbackTitle': 'Bookmarks',
   'bm.multiHint': 'Multi-select · click cards to select',
-  'bm.searchTitle': 'Search all bookmarks (Ctrl+K)',
   'bm.delSel': 'Delete selected · {n}',
   'bm.import': 'Import JSON',
   'bm.emptyT': 'This folder is empty',
@@ -338,10 +337,17 @@ const en: Record<I18nKey, string> = {
   'help.ctrlMulti': 'Ctrl-click tab cards',
   'help.ctrlMultiHint': 'reorder as a group',
 
-  'theme.tip': 'Theme: {m} (click to switch)',
   'theme.light': 'Light',
   'theme.dark': 'Dark',
   'theme.system': 'System',
+
+  'tools.tip': 'More tools',
+  'tools.search': 'Search bookmarks',
+  'tools.lang': 'Language',
+  'tools.theme': 'Theme',
+  'tools.help': 'Shortcuts & actions',
+  'lang.zh': 'Chinese',
+  'lang.en': 'English',
 
   'split.title': 'Drag to resize',
 
@@ -377,8 +383,6 @@ const en: Record<I18nKey, string> = {
   'toast.addedTabs': 'Added {n} tabs to "{t}"',
 
   'bm.newFolder': 'New folder',
-
-  'lang.tip': '切换到中文',
 };
 
 const DICT: Record<Lang, Record<I18nKey, string>> = { zh, en };

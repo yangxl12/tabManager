@@ -35,6 +35,16 @@ export function sanitizeQuickGroups(value: unknown): QuickGroup[] {
   });
 }
 
+/**
+ * 当前分类 id 的白名单校验：不在分组表里（分组被删 / 存储被改坏 / 跨版本残留）一律回落默认分类。
+ * 存储里的值当外部输入处理，绝不能让 UI 停在一个查不到的分组上。
+ */
+function normalizeActiveGroup(id: unknown, groups: QuickGroup[]): string {
+  if (typeof id !== 'string' || !id) return DEFAULT_QUICK_GROUP_ID;
+  if (id === DEFAULT_QUICK_GROUP_ID) return id;
+  return groups.some((g) => g.id === id) ? id : DEFAULT_QUICK_GROUP_ID;
+}
+
 export interface QuickSlice {
   quickSites: QuickSite[];
   quickGroups: QuickGroup[];
@@ -63,6 +73,8 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
   setActiveQuickGroup(id) {
     if (id !== DEFAULT_QUICK_GROUP_ID && !get().quickGroups.some((g) => g.id === id)) return;
     set((s) => { s.activeQuickGroupId = id; });
+    // 记住这次点击：刷新 / 重开新标签页后仍停在这个分类
+    void setLocal(KEYS.quickGroup, id);
   },
 
   addQuickGroup(name) {
@@ -74,6 +86,8 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       s.activeQuickGroupId = id;
     });
     void setLocal(KEYS.quickGroups, get().quickGroups);
+    // 新建后自动切到新分组，这份「上次点的是哪一栏」也要落盘
+    void setLocal(KEYS.quickGroup, id);
   },
 
   renameQuickGroup(id, name) {
@@ -89,6 +103,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
 
   removeQuickGroup(id) {
     if (id === DEFAULT_QUICK_GROUP_ID || !get().quickGroups.some((g) => g.id === id)) return;
+    const wasActive = get().activeQuickGroupId === id;
     set((s) => {
       s.quickGroups = s.quickGroups.filter((g) => g.id !== id);
       s.quickSites = s.quickSites.filter((q) => quickGroupOf(q) !== id);
@@ -96,6 +111,8 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
     });
     void setLocal(KEYS.quickGroups, get().quickGroups);
     void setLocal(KEYS.quickSites, get().quickSites);
+    // 删掉的正是在看的那一栏时，落盘的记忆也要跟着回落，别留死 id
+    if (wasActive) void setLocal(KEYS.quickGroup, DEFAULT_QUICK_GROUP_ID);
   },
 
   // 快捷访问不设数量上限：多了由用户自己删，别用软上限拦人（拖拽批量加入时尤其别扭）
@@ -171,21 +188,26 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
 
   async initQuick() {
     // 未存过时显示默认站点；用户清空后存下的 [] 必须保持为空。
-    const [storedSites, storedGroups] = await Promise.all([
+    const [storedSites, storedGroups, storedActive] = await Promise.all([
       getLocal<unknown>(KEYS.quickSites, null),
       getLocalArray<unknown>(KEYS.quickGroups),
+      getLocal<unknown>(KEYS.quickGroup, DEFAULT_QUICK_GROUP_ID),
     ]);
     const groups = sanitizeQuickGroups(storedGroups);
     const groupIds = new Set(groups.map((g) => g.id));
     const stored = sanitizeQuickSites(storedSites).map((q) =>
       q.groupId && !groupIds.has(q.groupId) ? { ...q, groupId: DEFAULT_QUICK_GROUP_ID } : q,
     );
+    const active = normalizeActiveGroup(storedActive, groups);
     set((s) => {
       if (Array.isArray(storedSites) && (stored.length || storedSites.length === 0)) {
         s.quickSites = stored;
       }
       s.quickGroups = groups;
+      s.activeQuickGroupId = active;
       s.quickLoaded = true;
     });
+    // 存储里是脏值（分组已删）时顺手订正回去，避免每次启动都要回落一次
+    if (active !== storedActive) void setLocal(KEYS.quickGroup, active);
   },
 });

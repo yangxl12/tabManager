@@ -1,27 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useStore, useT } from '@/store';
 import { childrenOf, countOf, pathOf } from '@/lib/bookmarkTree';
-import { EmptyBmsArt, IconFolder, IconGlobe, IconNote, IconPlus, IconSearch, IconUpload } from './icons';
+import { EmptyBmsArt, IconFolder, IconNote, IconPlus } from './icons';
 import { BookmarkCard } from './BookmarkCard';
-import { ThemeMenu } from './ThemeMenu';
+import { ToolsMenu } from './ToolsMenu';
 import { domCells, useAutoScroll, useExternalFileTarget, useFolderTarget, usePaneTarget } from '@/dnd/dnd';
-
-/** 界面语言切换：地球图标，点击 zh / en 互切（真源在 uiSlice.lang） */
-function LangToggle() {
-  const t = useT();
-  const toggleLang = useStore((s) => s.toggleLang);
-  const tip = t('lang.tip');
-  return (
-    <button
-      className="ico-btn lang-btn"
-      title={tip}
-      aria-label={tip}
-      onClick={toggleLang}
-    >
-      <IconGlobe size={15} />
-    </button>
-  );
-}
 
 function SubChip({ id }: { id: string }) {
   const chipRef = useRef<HTMLButtonElement>(null);
@@ -122,15 +105,6 @@ export function BookmarkGrid({
         <span className="count-pill">{list.length}</span>
         {selected.length > 0 ? <div className="sec-hint">{t('bm.multiHint')}</div> : null}
         <div className="sec-ops">
-          <button
-            className="ico-btn bm-search-btn"
-            title={t('bm.searchTitle')}
-            onClick={onOpenSearch}
-          >
-            <IconSearch size={15} />
-          </button>
-          <LangToggle />
-          <ThemeMenu />
           {selected.length > 0 ? (
             <>
               <button className="btn btn--sm btn--ghost" onClick={clearBmSel}>
@@ -161,9 +135,8 @@ export function BookmarkGrid({
               >
                 <IconPlus size={12} /> {t('common.new')}
               </button>
-              <button className="btn btn--sm" onClick={onOpenImport}>
-                <IconUpload size={12} /> {t('bm.import')}
-              </button>
+              {/* 搜索 / 界面语言 / 主题 / 导入都收进这个「三个点」弹窗，紧挨便签按钮左侧 */}
+              <ToolsMenu onOpenSearch={onOpenSearch} onOpenImport={onOpenImport} />
               <button
                 className={`btn btn--sm note-btn${noteOpen ? ' is-on' : ''}`}
                 title={noteOpen ? t('note.collapse') : t('note.btn')}

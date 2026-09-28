@@ -42,6 +42,8 @@ export async function setLocal(key: string, value: unknown): Promise<void> {
 export const KEYS = {
   quickSites: 'tabnest.quickSites',
   quickGroups: 'tabnest.quickGroups',
+  /** 快捷访问当前选中的分类标签：记住用户上次点的是哪个 */
+  quickGroup: 'tabnest.activeQuickGroup',
   collapsed: 'tabnest.collapsedFolders',
   currentFolder: 'tabnest.currentFolder',
   panelWidth: 'tabnest.panelWidth',

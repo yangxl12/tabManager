@@ -995,6 +995,24 @@ textarea {
   place-items: center;
   color: var(--color-jade);
 }
+/* 右侧浅色说明（例如「界面语言」后面跟 English） */
+.row-menu__hint {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--color-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* 分组小标题（工具菜单里的「主题」）：高度与 JS 里的 SEC_H 对应 */
+.row-menu__sec {
+  height: 23px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--color-faint);
+}
 
 .pane-main {
   --sec: var(--color-jade);
@@ -1898,21 +1916,16 @@ kbd {
   font-size: 11px;
   color: var(--color-faint);
 }
-.sec-ops .bm-search-btn,
-.sec-ops .help-btn {
-  width: 30px;
-  height: 27px;
-}
-/* 右上角主题入口：复用「三个点」菜单的弹层逻辑，外观跟旁边的图标按钮一致。
+/* 右上角工具收纳入口（三个点）：复用「三个点」菜单的弹层逻辑，外观跟旁边的图标按钮一致。
    必须写在 .row-menu__btn 之后（同权重靠后覆盖）。 */
-.sec-ops .theme-btn {
+.sec-ops .tools-btn {
   width: 30px;
   height: 27px;
   border-radius: 9px;
   color: var(--color-muted);
   background: transparent;
 }
-.sec-ops .theme-btn:hover {
+.sec-ops .tools-btn:hover {
   color: var(--color-ink);
   background: var(--color-hover);
 }

@@ -197,6 +197,103 @@ async function main() {
   console.log(errs.length ? errs.join('\n') : '无 ✓');
   if (errs.length) failed = true;
 
+  /* ⑤ 面板标题行瘦身 / 右上角「三个点」工具菜单 / 快捷分类记忆。
+     真扩展环境下没有 window.__tabnest（只有 dev 才挂），所以全部按「用户看得见的 DOM + chrome.storage」来验。 */
+  console.log('\n=== ⑤ 标题行 · 工具菜单 · 快捷分类记忆 ===');
+  const ui = await send(
+    ws,
+    'Runtime.evaluate',
+    {
+      expression: `(async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const q = (s) => document.querySelector(s);
+        const out = {};
+        await sleep(600);
+
+        const head = q('.pane-tabs .sec-head');
+        out.标签标题行 = {
+          有标题: !!head.querySelector('.sec-title'),
+          有全选: [...head.querySelectorAll('.sec-ops .btn')].some((b) => b.textContent.includes('全选')),
+          无数量显示: !head.querySelector('.count-pill'),
+          无提示文案: !head.querySelector('.sec-hint'),
+          无帮助图标: !head.querySelector('.help-btn'),
+        };
+
+        const tools = q('.pane-main .tools-btn');
+        const note = q('.pane-main .note-btn');
+        out.标题行按钮 = {
+          搜索图标已收进菜单: !q('.pane-main .bm-search-btn'),
+          语言图标已收进菜单: !q('.pane-main .lang-btn'),
+          主题图标已收进菜单: !q('.pane-main .theme-btn'),
+          三个点在便签左侧:
+            !!tools && !!note && tools.getBoundingClientRect().right <= note.getBoundingClientRect().left + 1,
+        };
+
+        tools.click();
+        await sleep(450);
+        const menu = [...document.querySelectorAll('.row-menu')]
+          .filter((m) => m.querySelector('[data-row-item="help"]'))
+          .pop();
+        out.菜单项 = menu
+          ? [...menu.querySelectorAll('[data-row-item]')].map((b) => b.getAttribute('data-row-item'))
+          : [];
+        const searchItem = menu && menu.querySelector('[data-row-item="search"]');
+        if (searchItem) searchItem.click();
+        await sleep(600);
+        out.菜单里能打开搜索弹窗 = !!q('.bmsearch');
+        const closeBtn = q('.bmsearch__close');
+        if (closeBtn) closeBtn.click();
+        await sleep(600);
+
+        // 新建一个快捷分类 → 会自动切过去并落盘
+        q('.quick-tabs__add').click();
+        await sleep(350);
+        const input = q('.quick-group-form .fld');
+        const setValue = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value').set;
+        setValue.call(input, '发布验证');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        q('.quick-group-form button[type="submit"]').click();
+        await sleep(800);
+        const stored = (await chrome.storage.local.get('tabnest.activeQuickGroup'))['tabnest.activeQuickGroup'];
+        out.选中的分类 = {
+          界面当前栏: (q('.quick-tab.is-active') || {}).textContent,
+          落盘值: stored,
+        };
+        return JSON.stringify(out, null, 2);
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    },
+    ntp.sessionId,
+  );
+  const uiOut = JSON.parse(ui.result.value);
+  console.log(ui.result.value);
+
+  const headOk = Object.values(uiOut.标签标题行).every(Boolean);
+  const btnOk = Object.values(uiOut.标题行按钮).every(Boolean);
+  const menuOk = uiOut.菜单项.join() === 'search,import,lang,light,dark,system,help' && uiOut.菜单里能打开搜索弹窗;
+  const groupOk = uiOut.选中的分类.界面当前栏 === '发布验证' && !!uiOut.选中的分类.落盘值;
+  if (!headOk || !btnOk || !menuOk || !groupOk) failed = true;
+
+  // 刷新页面（= 下次进入新标签页）：分类记忆必须还在
+  await send(ws, 'Page.reload', {}, ntp.sessionId);
+  await new Promise((r) => setTimeout(r, 4000));
+  const after = await send(
+    ws,
+    'Runtime.evaluate',
+    {
+      expression: `JSON.stringify({
+        刷新后当前栏: (document.querySelector('.quick-tab.is-active') || {}).textContent,
+        分类标签数: document.querySelectorAll('.quick-tab').length,
+      })`,
+      returnByValue: true,
+    },
+    ntp.sessionId,
+  );
+  const afterOut = JSON.parse(after.result.value);
+  console.log('刷新后:', JSON.stringify(afterOut, null, 2));
+  if (afterOut.刷新后当前栏 !== '发布验证') failed = true;
+
   // 截图存档
   const shotPath = process.env.SHOT_OUT || join(tmpdir(), 'tabnest-newtab.png');
   const shot = await send(ws, 'Page.captureScreenshot', { format: 'png' }, ntp.sessionId);

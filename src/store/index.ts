@@ -61,6 +61,17 @@ export async function bootstrapStore(): Promise<void> {
         }
       });
     }
+    if (changes[KEYS.quickGroup]) {
+      const next = changes[KEYS.quickGroup].newValue;
+      if (typeof next === 'string' && next) {
+        useStore.setState((st) => {
+          st.activeQuickGroupId =
+            next === DEFAULT_QUICK_GROUP_ID || st.quickGroups.some((g) => g.id === next)
+              ? next
+              : DEFAULT_QUICK_GROUP_ID;
+        });
+      }
+    }
     if (changes[KEYS.collapsed]) {
       const next = changes[KEYS.collapsed].newValue as string[] | undefined;
       if (Array.isArray(next)) useStore.setState((st) => void (st.collapsed = next));

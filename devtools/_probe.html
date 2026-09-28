@@ -65,6 +65,19 @@
       const bmCardById = (id) => D.querySelector(`[data-bm-card="${id}"] .bm-card`);
       const headerBtn = (text) => $$('.pane-main .sec-ops .btn').find((b) => b.textContent.includes(text));
       const tabBtn = (text) => $$('.pane-tabs .sec-ops .btn').find((b) => b.textContent.includes(text));
+      /* 右上角「三个点」工具菜单：搜索 / 界面语言 / 主题 / 导入 / 帮助都收在里面 */
+      const toolsOpen = async () => {
+        $('.pane-main .tools-btn').click();
+        await sleep(300);
+      };
+      const toolsHas = (key) => !!$(`.row-menu [data-row-item="${key}"]`);
+      const toolsPick = async (key) => {
+        const item = $(`.row-menu [data-row-item="${key}"]`);
+        if (!item) return false;
+        item.click();
+        await sleep(340);
+        return true;
+      };
 
       frame.addEventListener('load', async () => {
         D = frame.contentDocument;
@@ -386,11 +399,13 @@
             );
           }
 
-          /* ---------- 全局书签搜索弹窗 ---------- */
+          /* ---------- 全局书签搜索弹窗（入口在右上角「三个点」菜单里） ---------- */
           {
-            $('.bm-search-btn').click();
+            await toolsOpen();
+            log(toolsHas('search'), '「三个点」菜单里有搜索书签入口');
+            await toolsPick('search');
             await sleep(350);
-            log(!!$('.bmsearch'), '点击搜索图标打开全局书签搜索弹窗');
+            log(!!$('.bmsearch'), '点搜索入口打开全局书签搜索弹窗');
             const sInput = $('.bmsearch__field input');
             log(D.activeElement === sInput, '搜索框自动聚焦');
             log(
@@ -455,7 +470,8 @@
             );
 
             // 鼠标点击搜索结果：同样必须在新标签页打开
-            $('.bm-search-btn').click();
+            await toolsOpen();
+            await toolsPick('search');
             await sleep(400);
             const sInput2 = $('.bmsearch__field input');
             setInput(sInput2, 'github');
@@ -475,9 +491,10 @@
             );
 
             // 真实点击右上角的 X：验证 DOM 真的卸载
-            $('.bm-search-btn').click();
+            await toolsOpen();
+            await toolsPick('search');
             await sleep(400);
-            log(!!$('.bmsearch'), '再次点图标能重新打开弹窗');
+            log(!!$('.bmsearch'), '再次从菜单打开搜索弹窗');
             log(!!$('.bmsearch__close'), '弹窗右上角有独立关闭按钮');
             $('.bmsearch__close').click();
             await sleep(900);
@@ -748,6 +765,14 @@
             log(!$('.pane-tree__foot'), '书签面板底部的「新建子文件夹 / 共 xx 个书签」已移除');
             log(!$('.tree-count'), '层级菜单项不再显示书签数量');
             log(!$('.quick-tile__ops'), '快捷磁贴右上角原有的两个小按钮已移除');
+            // 标签面板标题行只留「标题 + 全选」：数量 pill / 拖拽提示 / ? 帮助入口全部拿掉
+            {
+              const head = $('.pane-tabs .sec-head');
+              log(!!head.querySelector('.sec-title') && !!tabBtn('全选'), '标签标题行只留标题与全选');
+              log(!head.querySelector('.count-pill'), '标签标题行不再显示标签数量');
+              log(!head.querySelector('.sec-hint'), '标签标题行不再显示拖拽提示');
+              log(!head.querySelector('.help-btn'), '标签标题行的 ? 帮助入口已移除');
+            }
             log(
               parseFloat(W.getComputedStyle($('.pane-tree')).width) >= 200,
               '书签层级菜单变宽（≥200px）',
@@ -1004,10 +1029,10 @@
           }
           log(!!$('.empty'), '空文件夹显示空态');
 
-          /* ---------- 导入 ---------- */
-          headerBtn('导入 JSON').click();
-          await sleep(300);
-          log(!!$('.modal__box'), '打开导入弹窗');
+          /* ---------- 导入（入口在右上角「三个点」菜单里） ---------- */
+          await toolsOpen();
+          await toolsPick('import');
+          log(!!$('.modal__box'), '从「三个点」菜单打开导入弹窗');
           $$('.modal__box .btn').find((b) => b.textContent.includes('填入示例')).click();
           await sleep(250);
           log(/可导入/.test($('.modal__f .tip').textContent), '填入示例后识别到可导入条目', $('.modal__f .tip').textContent);
@@ -1024,16 +1049,17 @@
             `当前 ${cards().length} 张`,
           );
 
-          /* ---------- 帮助面板（顶部那一排删掉后，入口挪到左侧标签面板的标题行） ---------- */
-          log(!!$('.pane-tabs .help-btn'), '帮助入口在标签面板标题行');
-          $('.pane-tabs .help-btn').click();
-          await sleep(250);
-          log(!!$('.help'), '打开快捷键帮助面板');
-          $('.pane-tabs .help-btn').click();
+          /* ---------- 帮助面板（tab 面板标题行的 ? 已移除，入口挪到「三个点」菜单） ---------- */
+          await toolsOpen();
+          log(toolsHas('help'), '「三个点」菜单里有快捷键帮助入口');
+          await toolsPick('help');
+          log(!!$('.help'), '从菜单打开快捷键帮助面板');
+          await toolsOpen();
+          await toolsPick('help');
           await sleep(600);
           log(
             !$('.help') || W.getComputedStyle($('.help')).opacity === '0',
-            '再次点击关闭帮助面板',
+            '再次从菜单点帮助关闭面板',
             `helpOpen=${W.__tabnest.getState().helpOpen} opacity=${$('.help') ? W.getComputedStyle($('.help')).opacity : 'n/a'}`,
           );
           /* ---------- hover 扁平化：不抬升、不加外阴影，只换底色 ---------- */
@@ -1363,6 +1389,88 @@
             }
           }
 
+          /* ---------- 快捷分类标签：点过的要记住（刷新 / 重开新标签页仍停在那一栏） ---------- */
+          {
+            const st = W.__tabnest.getState();
+            const groupTabs = () => $$('.quick-tab');
+            const activeTab = () => $('.quick-tab.is-active');
+            /** 模拟「刷新 / 重开新标签页」：内存态清到只剩存储，再走一遍初始化 */
+            const reboot = async () => {
+              W.__tabnest.setState({ quickGroups: [], activeQuickGroupId: 'default', quickLoaded: false });
+              await W.__tabnest.getState().initQuick();
+              await sleep(400);
+            };
+            log(groupTabs().length === st.quickGroups.length + 1, '分类标签 = 默认栏 + 自建分类', `实际 ${groupTabs().length}`);
+
+            // 新建一个分类（走标题行的 + 按钮），会自动切过去
+            $('.quick-tabs__add').click();
+            await sleep(280);
+            const nameInput = $('.quick-group-form .fld');
+            log(!!nameInput, '点 + 打开分类命名输入框');
+            setInput(nameInput, '记忆测试');
+            $('.quick-group-form button[type="submit"]').click();
+            await sleep(420);
+            const gid = W.__tabnest.getState().activeQuickGroupId;
+            log(gid !== 'default' && activeTab().textContent === '记忆测试', '新建分类后自动切到该分类', `active=${gid}`);
+
+            const snap = await W.chrome.storage.local.get(['tabnest.activeQuickGroup']);
+            log(
+              snap['tabnest.activeQuickGroup'] === gid,
+              '选中的分类已落盘（chrome.storage）',
+              JSON.stringify(snap),
+            );
+
+            // 再选一次自建分类，然后模拟「重开新标签页」：只从存储恢复
+            const sitesBefore = W.__tabnest.getState().quickSites.length;
+            await reboot();
+            log(
+              W.__tabnest.getState().activeQuickGroupId === gid &&
+                activeTab().textContent === '记忆测试',
+              '重新初始化（≈刷新）后仍停在上次点的那一栏',
+              `active=${W.__tabnest.getState().activeQuickGroupId} / tab=${activeTab().textContent}`,
+            );
+            log(
+              W.__tabnest.getState().quickSites.length === sitesBefore,
+              '恢复分类记忆不影响快捷站点本身',
+              `${sitesBefore} → ${W.__tabnest.getState().quickSites.length}`,
+            );
+
+            // 切回默认栏后重启，要停在默认栏 —— 记住的是「最近点的那一栏」，不是「非默认那一栏」
+            groupTabs()[0].click();
+            await sleep(360);
+            log(activeTab().textContent === '快捷访问', '点默认栏即切回默认栏');
+            await reboot();
+            log(
+              W.__tabnest.getState().activeQuickGroupId === 'default',
+              '重启后停在最近点的默认栏',
+              `active=${W.__tabnest.getState().activeQuickGroupId} / tab=${activeTab().textContent}`,
+            );
+
+            // 存储里是已被删掉的分类 id → 回落默认栏，不停在一个查不到的空白栏上
+            W.__tabnest.getState().setActiveQuickGroup(gid);
+            await sleep(300);
+            await W.chrome.storage.local.set({ 'tabnest.activeQuickGroup': 'qg-ghost' });
+            await reboot();
+            log(
+              W.__tabnest.getState().activeQuickGroupId === 'default',
+              '存储里的分类 id 已不存在 → 回落默认栏',
+              `active=${W.__tabnest.getState().activeQuickGroupId}`,
+            );
+
+            // 收尾：删掉测试分类，并把记忆复位，保证探针可重复跑
+            W.__tabnest.getState().removeQuickGroup(gid);
+            await sleep(320);
+            W.__tabnest.getState().setActiveQuickGroup('default');
+            await sleep(320);
+            const tail = await W.chrome.storage.local.get(['tabnest.activeQuickGroup']);
+            log(
+              W.__tabnest.getState().quickGroups.length === 0 &&
+                tail['tabnest.activeQuickGroup'] === 'default',
+              '清理测试分类并复位记忆',
+              JSON.stringify(tail),
+            );
+          }
+
           /* ---------- 快捷磁贴拖拽排序 ---------- */
           {
             const Q = () => W.__tabnest.getState().quickSites;
@@ -1510,6 +1618,49 @@
               );
             }
           }
+          /* ---------- 右上角「三个点」工具菜单：搜索 / 语言 / 主题 / 导入都收在里面 ---------- */
+          {
+            log(
+              !$('.pane-main .bm-search-btn') &&
+                !$('.pane-main .lang-btn') &&
+                !$('.pane-main .theme-btn'),
+              '标题行原来的搜索 / 语言 / 主题图标按钮已移除',
+            );
+            const toolsBtn = $('.pane-main .sec-ops .tools-btn');
+            const noteBtn = $('.pane-main .sec-ops .note-btn');
+            log(
+              !!toolsBtn && !!noteBtn &&
+                toolsBtn.getBoundingClientRect().right <= noteBtn.getBoundingClientRect().left + 1,
+              '「三个点」在便签按钮左侧',
+            );
+
+            await toolsOpen();
+            const menu = $$('.row-menu')
+              .filter((m) => m.querySelector('[data-row-item="help"]'))
+              .pop();
+            const keys = menu
+              ? [...menu.querySelectorAll('[data-row-item]')].map((b) => b.getAttribute('data-row-item'))
+              : [];
+            log(
+              keys.join() === 'search,import,lang,light,dark,system,help',
+              '菜单含搜索 / 导入 / 语言 / 主题三态 / 帮助',
+              keys.join() || '菜单没出来',
+            );
+            log(!!menu && !!menu.querySelector('.row-menu__sec'), '主题三项带分组小标题');
+            const langHint = menu && menu.querySelector('[data-row-item="lang"] .row-menu__hint');
+            log(!!langHint, '语言项右侧显示切过去的语言', langHint ? langHint.textContent : '');
+            // 菜单宽度要容得下最长那条文案（窄了会换行 / 裁切）
+            log(
+              !!menu && menu.getBoundingClientRect().width >= 180,
+              '工具菜单宽度够放长文案（≥180px）',
+              menu ? String(Math.round(menu.getBoundingClientRect().width)) : 'n/a',
+            );
+
+            // 点触发按钮收起菜单，别影响后面的用例
+            $('.pane-main .sec-ops .tools-btn').click();
+            await sleep(300);
+          }
+
           /* ---------- 主题（明亮 / 暗黑 / 跟随系统） ---------- */
           {
             const rgbDark = (v) => {
@@ -1518,8 +1669,8 @@
             };
             const mode = () => W.__tabnest.getState().theme;
             const initial = mode();
-            const btn = $('[data-row-menu="theme"]');
-            log(!!btn, '主题入口在书签面板标题行右上角');
+            const btn = $('[data-row-menu="tools"]');
+            log(!!btn, '工具入口（三个点）在书签面板标题行右上角');
             const initialBg = W.getComputedStyle(D.body).backgroundColor;
             log(
               rgbDark(initialBg) === (D.documentElement.dataset.theme === 'dark'),
@@ -1569,18 +1720,16 @@
 
             btn.click();
             await sleep(300);
-            // 只认主题菜单那一个 portal：前面步骤（书签行「三个点」）的菜单节点
+            // 只认工具菜单那一个 portal：前面步骤（书签行「三个点」）的菜单节点
             // 可能还挂在 body 上（motion 出场动画在无头虚拟时间下不一定跑完），
             // 全局查 `.row-menu [data-row-item]` 会把 rename/child/remove 一起捞进来
             const themeMenu = $$('.row-menu')
               .filter((m) => m.querySelector('[data-row-item="system"]'))
               .pop();
-            const opts = themeMenu
-              ? [...themeMenu.querySelectorAll('[data-row-item]')].map((b) =>
-                  b.getAttribute('data-row-item'),
-                )
-              : [];
-            log(opts.join() === 'light,dark,system', '主题菜单列出三种模式', opts.join() || '菜单没出来');
+            const opts = ['light', 'dark', 'system'].filter((k) =>
+              themeMenu ? !!themeMenu.querySelector(`[data-row-item="${k}"]`) : false,
+            );
+            log(opts.join() === 'light,dark,system', '工具菜单里能选三种主题模式', opts.join() || '菜单没出来');
             log(
               !!$(`[data-row-item="${initial}"] .row-menu__ck`),
               `当前模式（${initial}）带勾选标记`,

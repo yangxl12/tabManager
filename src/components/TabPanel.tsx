@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useStore, useT } from '@/store';
-import { EmptyTabsArt, IconHelp, IconX } from './icons';
+import { EmptyTabsArt, IconX } from './icons';
 import { TabCard } from './TabCard';
 import { domCells, useAutoScroll, usePaneTarget } from '@/dnd/dnd';
 
@@ -11,7 +11,6 @@ export function TabPanel() {
   const selectAllTabs = useStore((s) => s.selectAllTabs);
   const clearTabSel = useStore((s) => s.clearTabSel);
   const closeTabsByIds = useStore((s) => s.closeTabsByIds);
-  const toggleHelp = useStore((s) => s.toggleHelp);
   const gridRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
@@ -57,26 +56,17 @@ export function TabPanel() {
             </div>
           </>
         ) : (
-          <>
-            <span className="count-pill">{list.length}</span>
-            <div className="sec-hint">{t('tabs.hint')}</div>
-            <div className="sec-ops">
-              <button
-                className="btn btn--sm"
-                disabled={!list.length}
-                onClick={() => selectAllTabs(list.map((tab) => tab.id))}
-              >
-                {t('common.selectAll')}
-              </button>
-              <button
-                className="ico-btn help-btn"
-                title={t('tabs.helpTitle')}
-                onClick={toggleHelp}
-              >
-                <IconHelp size={15} />
-              </button>
-            </div>
-          </>
+          // 常态标题行只留「标题 + 全选」：数量 pill、拖拽提示、帮助入口都是噪声，
+          // 需要时会在多选态 / 三个点菜单里出现
+          <div className="sec-ops">
+            <button
+              className="btn btn--sm"
+              disabled={!list.length}
+              onClick={() => selectAllTabs(list.map((tab) => tab.id))}
+            >
+              {t('common.selectAll')}
+            </button>
+          </div>
         )}
       </div>
 
