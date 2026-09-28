@@ -1,6 +1,6 @@
 /** chrome.tabs 封装 */
 import type { TabItem } from '@/lib/types';
-import { pickNewTabSurvivor } from '@/lib/tabDedupe';
+import { isSameNewTabUrl, pickNewTabSurvivor } from '@/lib/tabDedupe';
 import { isInternalUrl } from '@/lib/url';
 
 export function toTabItem(t: chrome.tabs.Tab): TabItem {
@@ -90,7 +90,9 @@ export function isSelfExtensionUrl(url: string): boolean {
 
 /** 是否应该从标签列表里隐藏自身标签页 */
 export function isSelfTab(tab: { id: number; url: string }, selfTabId: number | null): boolean {
-  return (selfTabId != null && tab.id === selfTabId) || isSelfExtensionUrl(tab.url);
+  return (selfTabId != null && tab.id === selfTabId) ||
+    isSelfExtensionUrl(tab.url) ||
+    isSameNewTabUrl(tab.url, []);
 }
 
 /**

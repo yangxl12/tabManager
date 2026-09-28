@@ -136,9 +136,13 @@ export const createTabsSlice: SliceCreator<TabsSlice> = (set, get) => {
         if (info.status && info.status !== 'complete' && !info.title && !info.url) return;
         const item = Tabs.toTabItem(tab);
         set((s) => {
+          if (Tabs.isSelfTab(item, get().selfTabId)) {
+            s.tabs = s.tabs.filter((t) => t.id !== id);
+            s.selectedTabs = s.selectedTabs.filter((x) => x !== id);
+            return;
+          }
           const t = s.tabs.find((x) => x.id === id);
           if (!t) {
-            if (Tabs.isSelfTab(item, get().selfTabId)) return;
             const winId = get().selfWindowId;
             if (winId != null && item.windowId !== winId) return;
             s.tabs.push(item);

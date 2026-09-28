@@ -13,8 +13,8 @@ export interface DedupeTab {
   windowId: number;
 }
 
-/** Chrome 给新标签页的虚拟地址（归一化后）。点「+」/ Ctrl+T 开出来的标签 url 就是它 */
-export const NEWTAB_VIRTUAL_URL = 'chrome://newtab';
+/** Chrome / Edge 给新标签页的虚拟地址（归一化后） */
+export const NEWTAB_VIRTUAL_URLS = ['chrome://newtab', 'edge://newtab'];
 
 /**
  * 页面地址归一：去掉 ?query、#hash 与末尾斜杠。
@@ -32,8 +32,8 @@ export function normalizePageUrl(url: string): string {
  * 某个地址是否指向「TabNest 新标签页」。
  *
  * 两个都要认，只认一个一定漏：
- * - `chrome://newtab/`：点标签栏「+」/ Ctrl+T 开出来的标签，Chrome **保留虚拟地址**，
- *   `tab.url` 报的是 chrome://newtab/ 而不是扩展地址（实测）。按扩展 URL 前缀判定全漏。
+ * - `chrome://newtab/` / `edge://newtab/`：点标签栏「+」/ Ctrl+T 开出来的标签，
+ *   浏览器可能保留虚拟地址，而不是扩展地址。按扩展 URL 前缀判定会漏。
  * - 与自身地址之一相同：显式用扩展地址打开、或 crxjs dev 下挂在 dev server 上时的地址。
  *
  * 只认「新标签页入口」这一个地址、不用整段扩展前缀：以后加了设置页之类的，
@@ -42,7 +42,7 @@ export function normalizePageUrl(url: string): string {
 export function isSameNewTabUrl(url: string, selfUrls: string[]): boolean {
   const u = normalizePageUrl(url);
   if (!u) return false;
-  if (u === NEWTAB_VIRTUAL_URL) return true;
+  if (NEWTAB_VIRTUAL_URLS.includes(u)) return true;
   return selfUrls.some((s) => normalizePageUrl(s) === u);
 }
 

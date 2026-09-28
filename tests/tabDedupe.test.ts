@@ -5,6 +5,7 @@ import {
   pickNewTabSurvivor,
   type DedupeTab,
 } from '@/lib/tabDedupe';
+import { isSelfTab } from '@/services/chromeTabs';
 
 const SELF_URL = 'chrome-extension://abcd/src/newtab/index.html';
 const OTHER_URL = 'https://example.com/';
@@ -34,6 +35,11 @@ describe('isSameNewTabUrl', () => {
   it('Chrome 保留的新标签页虚拟地址算同一个页面（点「+」开出来的就是它）', () => {
     expect(isSameNewTabUrl('chrome://newtab/', SELF_URLS)).toBe(true);
     expect(isSameNewTabUrl('chrome://newtab', SELF_URLS)).toBe(true);
+  });
+
+  it('Edge 保留的新标签页虚拟地址也算同一个页面', () => {
+    expect(isSameNewTabUrl('edge://newtab/', SELF_URLS)).toBe(true);
+    expect(isSameNewTabUrl('edge://newtab', SELF_URLS)).toBe(true);
   });
 
   it('与自身地址之一相同算同一个页面（显式打开扩展页 / dev server）', () => {
@@ -94,11 +100,23 @@ describe('pickNewTabSurvivor', () => {
     expect(pickNewTabSurvivor(tabs, { id: 9, windowId: 1 }, SELF_URLS)).toBe(3);
   });
 
+  it('Edge「+」开出的标签让位给已打开的插件页', () => {
+    const tabs = [tab(3, 'edge://newtab/'), tab(9, SELF_URL)];
+    expect(pickNewTabSurvivor(tabs, { id: 9, windowId: 1 }, SELF_URLS)).toBe(3);
+  });
+
   it('多个页面同时自检也只有最老的那个留下（不会互相关闭）', () => {
     const tabs = [tab(3, SELF_URL), tab(7, SELF_URL), tab(9, SELF_URL)];
     const decisions = [3, 7, 9].map(
       (id) => pickNewTabSurvivor(tabs, { id, windowId: 1 }, SELF_URLS) ?? id,
     );
     expect(new Set(decisions)).toEqual(new Set([3]));
+  });
+});
+
+describe('isSelfTab', () => {
+  it('已打开标签列表隐藏 Edge 的插件新标签页', () => {
+    expect(isSelfTab({ id: 3, url: 'edge://newtab/' }, 9)).toBe(true);
+    expect(isSelfTab({ id: 4, url: OTHER_URL }, 9)).toBe(false);
   });
 });
