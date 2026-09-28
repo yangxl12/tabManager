@@ -5,7 +5,7 @@ import { normalizeTheme } from '@/lib/theme';
 import { normalizeLang, setLangMirror, t } from '@/lib/i18n';
 import { normalizeNoteWidth } from '@/lib/noteMirror';
 import type { QuickSite } from '@/lib/types';
-import { DEFAULT_QUICK_GROUP_ID, sanitizeQuickGroups } from './quickSlice';
+import { DEFAULT_QUICK_GROUP_ID, ensureCuratedQuickGroups, rehomeQuickSites, sanitizeQuickGroups } from './quickSlice';
 import { createBookmarksSlice, type BookmarksSlice } from './bookmarksSlice';
 import { createQuickSlice, type QuickSlice } from './quickSlice';
 import { createTabsSlice, type TabsSlice } from './tabsSlice';
@@ -49,14 +49,14 @@ export async function bootstrapStore(): Promise<void> {
   subscribeLocal((changes) => {
     if (changes[KEYS.quickSites]) {
       const next = changes[KEYS.quickSites].newValue as QuickSite[] | undefined;
-      if (Array.isArray(next)) useStore.setState((st) => void (st.quickSites = next));
+      if (Array.isArray(next)) useStore.setState((st) => void (st.quickSites = rehomeQuickSites(next, st.quickGroups)));
     }
     if (changes[KEYS.quickGroups]) {
-      const next = sanitizeQuickGroups(changes[KEYS.quickGroups].newValue);
+      const next = ensureCuratedQuickGroups(sanitizeQuickGroups(changes[KEYS.quickGroups].newValue));
       useStore.setState((st) => {
         st.quickGroups = next;
         if (st.activeQuickGroupId !== DEFAULT_QUICK_GROUP_ID &&
-            !next.some((g) => g.id === st.activeQuickGroupId)) {
+            !next.some((g) => g.id === st.activeQuickGroupId && !g.hidden)) {
           st.activeQuickGroupId = DEFAULT_QUICK_GROUP_ID;
         }
       });
@@ -66,7 +66,7 @@ export async function bootstrapStore(): Promise<void> {
       if (typeof next === 'string' && next) {
         useStore.setState((st) => {
           st.activeQuickGroupId =
-            next === DEFAULT_QUICK_GROUP_ID || st.quickGroups.some((g) => g.id === next)
+            next === DEFAULT_QUICK_GROUP_ID || st.quickGroups.some((g) => g.id === next && !g.hidden)
               ? next
               : DEFAULT_QUICK_GROUP_ID;
         });

@@ -438,11 +438,29 @@ textarea {
   align-items: center;
   gap: 3px;
   min-width: 0;
+  flex: 1;
   overflow-x: auto;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-muted) transparent;
 }
-.quick-tabs__list::-webkit-scrollbar { display: none; }
-.quick-tab-wrap { position: relative; flex: none; }
+.quick-tabs__list::-webkit-scrollbar { height: 5px; }
+.quick-tabs__list::-webkit-scrollbar-thumb { background: var(--color-muted); border-radius: 5px; }
+.quick-tab-wrap { position: relative; flex: none; cursor: grab; }
+.quick-tab-wrap:active { cursor: grabbing; }
+.quick-tab-wrap.is-dragging { opacity: 0.45; }
+.quick-tab-wrap.drop-before::before,
+.quick-tab-wrap.drop-after::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--sec);
+}
+.quick-tab-wrap.drop-before::before { left: -2px; }
+.quick-tab-wrap.drop-after::after { right: -2px; }
 .quick-tab {
   display: block;
   flex: none;
@@ -459,6 +477,7 @@ textarea {
   text-overflow: ellipsis;
 }
 .quick-tab-wrap .quick-tab { padding-right: 27px; }
+.quick-tab--fixed { flex: none; }
 .quick-tab:hover, .quick-tab-wrap:hover .quick-tab { background: var(--color-hover); color: var(--color-ink); }
 .quick-tab.is-active { background: var(--sec-soft); color: var(--sec); }
 .quick-tab-wrap .quick-tab__more {
@@ -482,6 +501,17 @@ textarea {
   line-height: 1;
 }
 .quick-tabs__add:hover { background: var(--sec-soft); color: var(--sec); }
+.quick-tabs__hidden {
+  width: auto;
+  min-width: 28px;
+  height: 27px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--color-muted);
+  font-size: 11px;
+}
 .quick-group-form {
   display: flex;
   align-items: center;

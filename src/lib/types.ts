@@ -71,6 +71,7 @@ export interface QuickSite {
 export interface QuickGroup {
   id: string;
   name: string;
+  hidden?: boolean;
 }
 
 export type ToastTone = 'ok' | 'warn' | 'danger';

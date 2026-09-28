@@ -44,6 +44,8 @@ export const KEYS = {
   quickGroups: 'tabnest.quickGroups',
   /** 快捷访问当前选中的分类标签：记住用户上次点的是哪个 */
   quickGroup: 'tabnest.activeQuickGroup',
+  curatedQuickSeeded: 'tabnest.curatedQuickSeeded.v1',
+  curatedQuickSeededV2: 'tabnest.curatedQuickSeeded.v2',
   collapsed: 'tabnest.collapsedFolders',
   currentFolder: 'tabnest.currentFolder',
   panelWidth: 'tabnest.panelWidth',
