@@ -23,6 +23,8 @@ export interface RowMenuItem {
   hint?: string;
   /** 该项之前插一条分组小标题（分组内第一项写就行） */
   section?: string;
+  /** 选中后保留菜单（例如同时展示帮助面板） */
+  keepOpen?: boolean;
   onPick: () => void;
 }
 
@@ -132,6 +134,7 @@ export function RowMenu({ items, title, marker, trigger, btnClass, width = MENU_
             <motion.div
               ref={menuRef}
               className="row-menu"
+              data-row-menu={marker}
               role="menu"
               style={{ left: pos.left, top: pos.top, width }}
               initial={{ opacity: 0 }}
@@ -150,7 +153,7 @@ export function RowMenu({ items, title, marker, trigger, btnClass, width = MENU_
                     className={`row-menu__item${it.danger ? ' is-danger' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setOpen(false);
+                      if (!it.keepOpen) setOpen(false);
                       it.onPick();
                     }}
                   >

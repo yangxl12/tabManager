@@ -88,6 +88,7 @@ export function ToolsMenu({
           key: 'help',
           label: t('tools.help'),
           icon: <IconHelp size={13} />,
+          keepOpen: true,
           onPick: toggleHelp,
         },
       ]}

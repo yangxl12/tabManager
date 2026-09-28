@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore, useT } from '@/store';
 import type { I18nKey } from '@/lib/i18n';
+import { IconX } from './icons';
 
 const ROWS: Array<{ label: I18nKey; hint?: I18nKey; keys: string[] }> = [
   { label: 'help.undo', hint: 'help.undoHint', keys: ['Ctrl', 'Z'] },
@@ -18,6 +19,7 @@ const ROWS: Array<{ label: I18nKey; hint?: I18nKey; keys: string[] }> = [
 export function HelpPanel() {
   const t = useT();
   const open = useStore((s) => s.helpOpen);
+  const setHelpOpen = useStore((s) => s.setHelpOpen);
   return (
     <AnimatePresence>
       {open ? (
@@ -29,7 +31,18 @@ export function HelpPanel() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.16, ease: [0.22, 0.8, 0.28, 1] }}
         >
-          <h4>{t('help.title')}</h4>
+          <div className="help__head">
+            <h4>{t('help.title')}</h4>
+            <button
+              className="help__close"
+              type="button"
+              title={t('common.close')}
+              aria-label={t('common.close')}
+              onClick={() => setHelpOpen(false)}
+            >
+              <IconX size={13} />
+            </button>
+          </div>
           {ROWS.map((r) => (
             <div className="kbd-row" key={r.label}>
               <span>{t(r.label)}</span>
