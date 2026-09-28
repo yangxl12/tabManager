@@ -2055,6 +2055,9 @@ body.resizing .note-pane {
   height: 26px;
   flex: none;
 }
+.note-collapse svg {
+  transform: rotate(180deg);
+}
 
 /* 工具条：H1 H2 · B S · 无序 / 有序列表（mousedown 执行，不抢编辑器选区） */
 .note-tools {
