@@ -18,7 +18,8 @@ const MODE_KEY: Record<ThemeMode, I18nKey> = {
   system: 'theme.system',
 };
 
-/** 语言展示名：列表里显示「切过去会变成哪个语言」（在中文界面下显示目标语言 English） */
+/** 语言分组（与主题同款单选：每项自带展示名，当前项打勾） */
+const LANGS: Lang[] = ['zh', 'en'];
 const LANG_KEY: Record<Lang, I18nKey> = { zh: 'lang.zh', en: 'lang.en' };
 
 function ModeIcon({ mode, size }: { mode: ThemeMode; size: number }) {
@@ -43,9 +44,8 @@ export function ToolsMenu({
   const theme = useStore((s) => s.theme);
   const setTheme = useStore((s) => s.setTheme);
   const lang = useStore((s) => s.lang);
-  const toggleLang = useStore((s) => s.toggleLang);
+  const setLang = useStore((s) => s.setLang);
   const toggleHelp = useStore((s) => s.toggleHelp);
-  const nextLang: Lang = lang === 'zh' ? 'en' : 'zh';
 
   return (
     <RowMenu
@@ -66,13 +66,15 @@ export function ToolsMenu({
           icon: <IconUpload size={12} />,
           onPick: onOpenImport,
         },
-        {
-          key: 'lang',
-          label: t('tools.lang'),
-          hint: t(LANG_KEY[nextLang]),
+        ...LANGS.map((l) => ({
+          key: `lang.${l}`,
+          label: t(LANG_KEY[l]),
           icon: <IconGlobe size={13} />,
-          onPick: toggleLang,
-        },
+          // 分组小标题挂在第一项上，弹层里就是「界面语言 / 中文 / English」
+          ...(l === LANGS[0] ? { section: t('tools.lang') } : {}),
+          checked: lang === l,
+          onPick: () => setLang(l),
+        })),
         ...THEME_MODES.map((m) => ({
           key: m,
           label: t(MODE_KEY[m]),

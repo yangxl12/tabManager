@@ -49,7 +49,6 @@ export interface UiSlice {
   setHelpOpen: (v: boolean) => void;
     setTheme: (m: ThemeMode) => void;
   setLang: (l: Lang) => void;
-  toggleLang: () => void;
   setPanelWidth: (w: number) => void;
   setDrag: (patch: Partial<DragState>) => void;
   resetDrag: () => void;
@@ -113,8 +112,6 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
       setLangMirror(l);
       void setLocal(KEYS.lang, l);
     }),
-
-  toggleLang: () => get().setLang(get().lang === 'zh' ? 'en' : 'zh'),
 
   setPanelWidth: (w) =>
     set((s) => {

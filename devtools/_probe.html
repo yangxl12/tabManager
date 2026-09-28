@@ -1642,13 +1642,25 @@
               ? [...menu.querySelectorAll('[data-row-item]')].map((b) => b.getAttribute('data-row-item'))
               : [];
             log(
-              keys.join() === 'search,import,lang,light,dark,system,help',
-              '菜单含搜索 / 导入 / 语言 / 主题三态 / 帮助',
+              keys.join() === 'search,import,lang.zh,lang.en,light,dark,system,help',
+              '菜单含搜索 / 导入 / 语言两选 / 主题三态 / 帮助',
               keys.join() || '菜单没出来',
             );
-            log(!!menu && !!menu.querySelector('.row-menu__sec'), '主题三项带分组小标题');
-            const langHint = menu && menu.querySelector('[data-row-item="lang"] .row-menu__hint');
-            log(!!langHint, '语言项右侧显示切过去的语言', langHint ? langHint.textContent : '');
+            const secs = menu
+              ? [...menu.querySelectorAll('.row-menu__sec')].map((n) => n.textContent.trim())
+              : [];
+            log(secs.length === 2, '语言 / 主题各带一个分组小标题', secs.join(' / ') || '没出来');
+            // 语言改成和主题同款单选：当前项打勾、另一项不打勾（原来是一条「切到 English」的 hint）
+            const langCur = W.__tabnest.getState().lang;
+            const langOther = langCur === 'zh' ? 'en' : 'zh';
+            log(
+              !!menu && !!menu.querySelector(`[data-row-item="lang.${langCur}"] .row-menu__ck`),
+              `语言分组里当前语言（${langCur}）带勾选标记`,
+            );
+            log(
+              !!menu && !menu.querySelector(`[data-row-item="lang.${langOther}"] .row-menu__ck`),
+              `非当前语言（${langOther}）不打勾`,
+            );
             // 菜单宽度要容得下最长那条文案（窄了会换行 / 裁切）
             log(
               !!menu && menu.getBoundingClientRect().width >= 180,

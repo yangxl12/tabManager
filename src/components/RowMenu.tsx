@@ -19,7 +19,7 @@ export interface RowMenuItem {
   danger?: boolean;
   /** 单选菜单（主题）：当前项右侧打勾 */
   checked?: boolean;
-  /** 右侧的浅色说明文字（例如「界面语言」后面跟 English） */
+  /** 右侧的浅色说明文字（未打勾时显示的次要信息） */
   hint?: string;
   /** 该项之前插一条分组小标题（分组内第一项写就行） */
   section?: string;
