@@ -88,7 +88,9 @@ export const TabCard = memo(function TabCard({ tab, index, entering }: Props) {
             st.toggleTabSel(tab.id, e);
             return;
           }
-          void st.openTab(tab.url);
+          // 点卡片 = 切到那个已打开的标签（本面板只列当前窗口的标签），
+          // 不再用 URL 新建一个 —— 那会凭空多出一张同地址的标签页
+          void st.activateTab(tab.id);
         }}
         onAuxClick={(e) => {
           if (e.button === 1) {

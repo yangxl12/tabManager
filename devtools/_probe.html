@@ -218,19 +218,20 @@
           );
 
           /* ---------- 标签 ---------- */
+          // 单击卡片 = 激活已打开的标签，不是新建（新建会凭空多一张同地址的标签页）
+          W.__tabnest.getState().tabs.forEach((t) => void (t.active = false));
           $('[data-tab-card="101"] .tab-card').click();
-          await sleep(150);
-          log(
-            $$('[data-tab-card]').length === BASE_TABS + 1,
-            '单击标签卡片会新开标签',
-            `实际 ${$$('[data-tab-card]').length}`,
-          );
-          $$('[data-tab-card]')[BASE_TABS].querySelector('.xbtn').click();
-          await sleep(700);
+          await sleep(200);
           log(
             $$('[data-tab-card]').length === BASE_TABS,
-            '关闭新开的标签后回到基准张数',
-            `实际 ${$$('[data-tab-card]').length}`,
+            '单击标签卡片不新开标签页',
+            `实际 ${$$('[data-tab-card]').length} / 期望 ${BASE_TABS}`,
+          );
+          const clicked = W.__tabnest.getState().tabs.find((t) => t.id === 101);
+          log(
+            !!clicked && clicked.active === true,
+            '单击标签卡片把目标标签置为当前激活标签',
+            `active=${clicked ? clicked.active : 'none'}`,
           );
 
           $('[data-tab-card="103"] .tab-card .xbtn').click();
