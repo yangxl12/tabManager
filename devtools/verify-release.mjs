@@ -242,6 +242,10 @@ async function main() {
         out.菜单项 = menu
           ? [...menu.querySelectorAll('[data-row-item]')].map((b) => b.getAttribute('data-row-item'))
           : [];
+        // 语言 / 主题都是分组单选：每个分组里必须恰好勾中一项，不能是 0 个或同时勾两个
+        out.语言单选唯一 = menu
+          ? menu.querySelectorAll('[data-row-item^="lang."] .row-menu__ck').length === 1
+          : false;
         const searchItem = menu && menu.querySelector('[data-row-item="search"]');
         if (searchItem) searchItem.click();
         await sleep(600);
@@ -276,7 +280,10 @@ async function main() {
 
   const headOk = Object.values(uiOut.标签标题行).every(Boolean);
   const btnOk = Object.values(uiOut.标题行按钮).every(Boolean);
-  const menuOk = uiOut.菜单项.join() === 'search,import,lang,light,dark,system,help' && uiOut.菜单里能打开搜索弹窗;
+  const menuOk =
+    uiOut.菜单项.join() === 'search,import,lang.zh,lang.en,light,dark,system,help' &&
+    uiOut.菜单里能打开搜索弹窗 &&
+    uiOut.语言单选唯一;
   const groupOk = uiOut.选中的分类.界面当前栏 === '发布验证' && !!uiOut.选中的分类.落盘值;
   if (!headOk || !btnOk || !menuOk || !groupOk) failed = true;
 
