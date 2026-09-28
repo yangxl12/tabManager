@@ -2214,12 +2214,6 @@ body.resizing .note-pane {
   font-variant-numeric: tabular-nums;
 }
 
-/* 工具条入口按钮：面板展开时切本区主色（琥珀），与 .btn--sel 同一语义 */
-.pane-main .note-btn.is-on {
-  color: var(--color-amber);
-  background: var(--color-amber-soft);
-}
-
 /* 窄屏：主区变纵向，便签转为底部抽屉（只动高度，拖拽条收起） */
 @media (max-width: 1080px) {
   .note-pane {

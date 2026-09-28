@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore, useT } from '@/store';
 import { NOTE_WIDTH_MAX, NOTE_WIDTH_MIN, clampNoteWidth } from '@/lib/noteMirror';
 import { sanitizePastedHtml } from '@/lib/noteHtml';
-import { IconChevron, IconListOl, IconListUl, IconNote } from './icons';
+import { IconChevron, IconListOl, IconListUl } from './icons';
 
 const SAVE_DEBOUNCE = 500;
 
@@ -244,10 +244,7 @@ export function NotePanel() {
 
       <div className="panel note-inner">
         <div className="note-head">
-          <div className="sec-title note-title">
-            <IconNote size={13} />
-            {t('note.title')}
-          </div>
+          <div className="sec-title note-title">{t('note.title')}</div>
           <button
             className="ico-btn note-collapse"
             title={t('note.collapse')}

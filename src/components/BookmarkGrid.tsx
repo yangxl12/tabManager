@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useStore, useT } from '@/store';
 import { childrenOf, countOf, pathOf } from '@/lib/bookmarkTree';
-import { EmptyBmsArt, IconFolder, IconNote, IconPlus } from './icons';
+import { EmptyBmsArt, IconChevron, IconFolder, IconPlus } from './icons';
 import { BookmarkCard } from './BookmarkCard';
 import { ToolsMenu } from './ToolsMenu';
 import { domCells, useAutoScroll, useExternalFileTarget, useFolderTarget, usePaneTarget } from '@/dnd/dnd';
@@ -135,15 +135,13 @@ export function BookmarkGrid({
               >
                 <IconPlus size={12} /> {t('common.new')}
               </button>
-              {/* 搜索 / 界面语言 / 主题 / 导入都收进这个「三个点」弹窗，紧挨便签按钮左侧 */}
+              {/* 搜索 / 界面语言 / 主题 / 导入都收进这个「三个点」弹窗 */}
               <ToolsMenu onOpenSearch={onOpenSearch} onOpenImport={onOpenImport} />
-              <button
-                className={`btn btn--sm note-btn${noteOpen ? ' is-on' : ''}`}
-                title={noteOpen ? t('note.collapse') : t('note.btn')}
-                onClick={() => setNoteOpen(!noteOpen)}
-              >
-                <IconNote size={12} /> {t('note.btn')}
-              </button>
+              {!noteOpen ? (
+                <button className="btn btn--sm note-btn" onClick={() => setNoteOpen(true)}>
+                  {t('note.btn')} <IconChevron size={10} />
+                </button>
+              ) : null}
             </>
           )}
         </div>

@@ -540,22 +540,25 @@
               $$('.pane-main .sec-ops .btn').find((b) => b.textContent.includes('便签'));
             const stN = () => W.__tabnest.getState();
 
+            if (stN().noteOpen) {
+              $('.note-collapse').click();
+              await sleep(200);
+            }
             log(!!noteBtn(), '书签工具条出现「便签」按钮');
+            log(
+              !!noteBtn()?.querySelector('svg') && noteBtn().lastElementChild?.tagName === 'svg',
+              '收起时便签文字右侧显示向右图标',
+            );
             log(
               $$('.note-tool').length === 6,
               '工具条 6 个格式按钮（标题×2 加粗 删除线 列表×2）',
               `实际 ${$$('.note-tool').length}`,
             );
 
-            // 开合：按当前状态取反断言，别假设首屏一定是收起（上次展开会被记住）
-            const before = stN().noteOpen;
             noteBtn().click();
             await sleep(600);
-            log(stN().noteOpen === !before, '点击「便签」切换面板开合');
-            if (!stN().noteOpen) {
-              noteBtn().click();
-              await sleep(600);
-            }
+            log(stN().noteOpen && !noteBtn(), '展开后书签工具条不再显示便签按钮');
+            log(!$('.note-title svg'), '展开时便签标题左侧没有图标');
             log(
               !!$('.note-pane.is-open') && !!$('.note-editor'),
               '面板展开且渲染富文本编辑区',

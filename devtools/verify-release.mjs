@@ -227,7 +227,12 @@ async function main() {
           主题图标已收进菜单: !q('.pane-main .theme-btn'),
           三个点在便签左侧:
             !!tools && !!note && tools.getBoundingClientRect().right <= note.getBoundingClientRect().left + 1,
+          便签文字右侧有箭头: !!note && note.lastElementChild?.tagName.toLowerCase() === 'svg',
         };
+        note?.click();
+        await sleep(450);
+        out.标题行按钮.展开后无多余便签按钮 = !q('.pane-main .note-btn');
+        out.标题行按钮.便签标题无图标 = !q('.note-title svg');
 
         tools.click();
         await sleep(450);
