@@ -4,6 +4,7 @@ import { KEYS, subscribeLocal } from '@/services/storage';
 import { normalizeTheme } from '@/lib/theme';
 import { normalizeLang, setLangMirror, t } from '@/lib/i18n';
 import { normalizeNoteWidth } from '@/lib/noteMirror';
+import { normalizeAiWidth, writeMirrorAiWidth } from '@/lib/aiPanel';
 import type { QuickSite } from '@/lib/types';
 import { DEFAULT_QUICK_GROUP_ID, ensureCuratedQuickGroups, rehomeQuickSites, sanitizeQuickGroups } from './quickSlice';
 import { createBookmarksSlice, type BookmarksSlice } from './bookmarksSlice';
@@ -88,6 +89,13 @@ export async function bootstrapStore(): Promise<void> {
       const next = normalizeLang(changes[KEYS.lang].newValue);
       useStore.setState((st) => void (st.lang = next));
       setLangMirror(next);
+    }
+    if (changes[KEYS.aiWidth]) {
+      const next = normalizeAiWidth(changes[KEYS.aiWidth].newValue, NaN);
+      if (Number.isFinite(next)) {
+        useStore.setState((st) => void (st.aiWidth = next));
+        writeMirrorAiWidth(next);
+      }
     }
     // 便签面板：多开新标签页时保持开合 / 宽度 / 内容同步
     if (changes[KEYS.noteOpen]) {

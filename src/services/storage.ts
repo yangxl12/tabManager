@@ -50,6 +50,7 @@ export const KEYS = {
   collapsed: 'tabnest.collapsedFolders',
   currentFolder: 'tabnest.currentFolder',
   panelWidth: 'tabnest.panelWidth',
+  aiWidth: 'tabnest.aiWidth',
   helpOpen: 'tabnest.helpOpen',
   /** 主题模式；与 localStorage 镜像同一 key，见 lib/theme.ts */
   theme: 'tabnest.theme',

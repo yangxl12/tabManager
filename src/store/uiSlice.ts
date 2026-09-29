@@ -3,6 +3,7 @@ import { KEYS, getLocal, setLocal } from '@/services/storage';
 import { normalizeTheme, readMirrorTheme, type ThemeMode } from '@/lib/theme';
 import { normalizeLang, readMirrorLang, setLangMirror, type Lang } from '@/lib/i18n';
 import { asBool, asNumber } from '@/lib/validate';
+import { AI_WIDTH_DEFAULT, clampAiWidth, normalizeAiWidth, readMirrorAiWidth, writeMirrorAiWidth } from '@/lib/aiPanel';
 import type { ToastItem, ToastTone } from '@/lib/types';
 import type { SliceCreator } from './slice';
 
@@ -44,6 +45,7 @@ export interface UiSlice {
   /** 界面语言（zh / en）；t() 读 lib/i18n 的模块级镜像，这里管真源与订阅 */
   lang: Lang;
   panelWidth: number;
+  aiWidth: number;
   toasts: ToastItem[];
   drag: DragState;
   setSearchOpen: (v: boolean) => void;
@@ -52,6 +54,7 @@ export interface UiSlice {
     setTheme: (m: ThemeMode) => void;
   setLang: (l: Lang) => void;
   setPanelWidth: (w: number, persist?: boolean) => void;
+  setAiWidth: (w: number, persist?: boolean) => void;
   setDrag: (patch: Partial<DragState>) => void;
   resetDrag: () => void;
   toast: (input: ToastInput | string, options?: Partial<ToastInput>) => string;
@@ -81,6 +84,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   // 同 theme：镜像同步可读，首帧就是用户上次选的语言
   lang: readMirrorLang(),
   panelWidth: DEFAULT_PANEL_WIDTH,
+  aiWidth: readMirrorAiWidth(),
   toasts: [],
   drag: EMPTY_DRAG,
 
@@ -122,6 +126,15 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     if (persist) void setLocal(KEYS.panelWidth, width);
   },
 
+  setAiWidth: (w, persist = true) => {
+    const width = clampAiWidth(w);
+    if (width !== get().aiWidth) set((s) => { s.aiWidth = width; });
+    if (persist) {
+      writeMirrorAiWidth(width);
+      void setLocal(KEYS.aiWidth, width);
+    }
+  },
+
   toast: (input, options) => {
     const opts: ToastInput =
       typeof input === 'string' ? { msg: input, ...options } : input;
@@ -147,19 +160,23 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
 
   initUi: async () => {
     // 存储里的值不可信，逐项过一遍类型兜底（见 lib/validate.ts）
-    const [storedWidth, storedHelp, theme, lang] = await Promise.all([
+    const [storedWidth, storedAiWidth, storedHelp, theme, lang] = await Promise.all([
       getLocal<unknown>(KEYS.panelWidth, DEFAULT_PANEL_WIDTH),
+      getLocal<unknown>(KEYS.aiWidth, readMirrorAiWidth()),
       getLocal<unknown>(KEYS.helpOpen, false),
       getLocal<unknown>(KEYS.theme, readMirrorTheme()),
       getLocal<unknown>(KEYS.lang, readMirrorLang()),
     ]);
     const nextLang = normalizeLang(lang);
+    const nextAiWidth = normalizeAiWidth(storedAiWidth, AI_WIDTH_DEFAULT);
     set((s) => {
       s.panelWidth = Math.max(30, Math.min(70, asNumber(storedWidth, DEFAULT_PANEL_WIDTH)));
+      s.aiWidth = nextAiWidth;
       s.helpOpen = asBool(storedHelp, false);
       s.theme = normalizeTheme(theme);
       s.lang = nextLang;
     });
+    writeMirrorAiWidth(nextAiWidth);
     setLangMirror(nextLang);
     void get();
   },

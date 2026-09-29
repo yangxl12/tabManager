@@ -19,7 +19,7 @@ export function Splitter() {
   useEffect(() => {
     const move = (e: MouseEvent) => {
       if (!dragging.current) return;
-      const main = document.querySelector('.main');
+      const main = document.querySelector('.workspace');
       if (!main) return;
       const rect = main.getBoundingClientRect();
       const pct = ((e.clientX - rect.left) / rect.width) * 100;

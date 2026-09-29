@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore, useT } from '@/store';
 import { NOTE_WIDTH_MAX, NOTE_WIDTH_MIN, clampNoteWidth } from '@/lib/noteMirror';
+import { MIN_WORKSPACE_WIDTH } from '@/lib/aiPanel';
 import { sanitizePastedHtml } from '@/lib/noteHtml';
 import { IconChevron, IconListOl, IconListUl } from './icons';
 
@@ -236,9 +237,9 @@ export function NotePanel() {
       const main = document.querySelector('.main');
       if (!main) return;
       const rect = main.getBoundingClientRect();
-      // 面板贴 .main 右缘：宽度 = 右缘 - 指针；上限还要给标签面板与书签面板留地
-      const tabsW = document.querySelector('.panel--tabs')?.getBoundingClientRect().width ?? 0;
-      const hi = Math.min(NOTE_WIDTH_MAX, Math.floor(rect.width - tabsW - 286));
+      // 面板贴 .main 右缘：宽度 = 右缘 - 指针；给 AI 栏与中间工作区留空间
+      const aiW = document.querySelector('.ai-pane')?.getBoundingClientRect().width ?? 0;
+      const hi = Math.min(NOTE_WIDTH_MAX, Math.floor(rect.width - aiW - MIN_WORKSPACE_WIDTH - 13));
       pendingWidth.current = clampNoteWidth(Math.min(rect.right - e.clientX, Math.max(NOTE_WIDTH_MIN, hi)));
       if (resizeFrame.current === null) resizeFrame.current = window.requestAnimationFrame(() => {
         resizeFrame.current = null;

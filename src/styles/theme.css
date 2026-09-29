@@ -265,12 +265,210 @@ textarea {
   display: flex;
   align-items: stretch;
 }
+.workspace {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
 .panel {
   background: var(--color-panel);
   border-radius: var(--radius-lg);
   display: flex;
   min-height: 0;
   overflow: hidden;
+}
+
+/* 左侧 AI 入口：与便签同层，始终展开。颜色只用于小面积识别，卡片仍沿用页面的纸感底色。 */
+.ai-pane {
+  flex: none;
+  display: flex;
+  width: calc(var(--ai-width, 222px) + 13px);
+  min-width: 0;
+}
+.ai-pane > .splitter {
+  align-self: stretch;
+}
+.ai-inner {
+  --sec: var(--color-jade);
+  flex: none;
+  width: var(--ai-width, 222px);
+  padding: 20px 12px 12px;
+  flex-direction: column;
+  border: 1px solid var(--color-line-2);
+}
+.ai-head {
+  flex: none;
+  padding: 0 9px 17px;
+  border-bottom: 1px solid var(--color-line-2);
+}
+.ai-head__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.18em;
+}
+.ai-head__spark {
+  color: var(--color-jade);
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.ai-head__count {
+  margin-left: auto;
+  color: var(--color-faint);
+  letter-spacing: 0.05em;
+}
+.ai-head h2 {
+  margin: 12px 0 2px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+}
+.ai-head p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.ai-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 2px 8px;
+}
+.ai-link {
+  --ai-accent: #187c6b;
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  min-width: 0;
+  min-height: 56px;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--color-ink);
+  background: var(--color-panel-soft);
+  text-decoration: none;
+  animation: ai-arrive 0.38s var(--ease-nest) both;
+  animation-delay: calc(var(--ai-index) * 38ms);
+  transition: background-color 0.2s var(--ease-nest), border-color 0.2s var(--ease-nest);
+}
+.ai-link::before {
+  content: '';
+  position: absolute;
+  inset: 9px auto 9px 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--ai-accent);
+  opacity: 0;
+  transform: scaleY(0.45);
+  transition: opacity 0.2s var(--ease-nest), transform 0.2s var(--ease-nest);
+}
+.ai-link:hover,
+.ai-link:focus-visible {
+  background: color-mix(in srgb, var(--ai-accent) 9%, var(--color-panel));
+  border-color: color-mix(in srgb, var(--ai-accent) 20%, var(--color-panel));
+}
+.ai-link:hover::before,
+.ai-link:focus-visible::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+.ai-link__mark {
+  width: 35px;
+  height: 35px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--color-ink);
+  background: color-mix(in srgb, var(--ai-accent) 15%, var(--color-panel));
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  transition: background-color 0.2s var(--ease-nest);
+}
+.ai-link:hover .ai-link__mark,
+.ai-link:focus-visible .ai-link__mark {
+  background: color-mix(in srgb, var(--ai-accent) 24%, var(--color-panel));
+}
+.ai-link__copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+.ai-link__copy strong {
+  font-size: 12px;
+  font-weight: 670;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-link__copy small {
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-link__arrow {
+  align-self: flex-start;
+  margin-top: 3px;
+  color: var(--color-faint);
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 0.2s var(--ease-nest), color 0.2s var(--ease-nest);
+}
+.ai-link:hover .ai-link__arrow,
+.ai-link:focus-visible .ai-link__arrow {
+  transform: translate(2px, -2px);
+  color: var(--color-ink);
+}
+.ai-link[data-site='deepseek'] { --ai-accent: #537cc5; }
+.ai-link[data-site='chatglm'] { --ai-accent: #b37852; }
+.ai-link[data-site='yuanbao'] { --ai-accent: #d29350; }
+.ai-link[data-site='kimi'] { --ai-accent: #8b72be; }
+.ai-link[data-site='doubao'] { --ai-accent: #c66e82; }
+.ai-link[data-site='grok'] { --ai-accent: #797e7a; }
+.ai-link[data-site='gemini'] { --ai-accent: #6895bd; }
+.ai-foot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  justify-content: center;
+  flex: none;
+  padding: 11px 0 3px;
+  color: var(--color-faint);
+  font-size: 9px;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+.ai-foot__line {
+  width: 13px;
+  height: 1px;
+  background: var(--color-line);
+}
+@keyframes ai-arrive {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-link { animation: none; transition: none; }
+  .ai-link::before,
+  .ai-link__mark,
+  .ai-link__arrow { transition: none; }
 }
 .panel--tabs {
   width: 46%;
@@ -2258,7 +2456,12 @@ body.resizing .note-pane {
 }
 
 /* 窄屏：主区变纵向，便签转为底部抽屉（只动高度，拖拽条收起） */
-@media (max-width: 1080px) {
+@media (min-width: 1381px) and (max-width: 1500px) {
+  .workspace:has(+ .note-pane.is-open) .panel--tabs { width: 38% !important; }
+  .workspace:has(+ .note-pane.is-open) .pane-tree { width: 170px; }
+}
+
+@media (max-width: 1380px) {
   .note-pane {
     width: 100%;
     height: 0;
@@ -2283,8 +2486,41 @@ body.resizing .note-pane {
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1380px) {
   .main {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .ai-pane {
+    width: 100%;
+    height: 112px;
+  }
+  .ai-inner {
+    width: 100%;
+    padding: 10px 11px 7px;
+  }
+  .ai-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 0 3px 5px;
+    border: 0;
+  }
+  .ai-head__eyebrow { gap: 3px; }
+  .ai-head__count { display: none; }
+  .ai-head h2 { margin: 0; font-size: 16px; }
+  .ai-head p { display: none; }
+  .ai-list {
+    flex-direction: row;
+    gap: 7px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 3px 2px 5px;
+  }
+  .ai-link { width: 163px; min-height: 0; padding: 6px 8px; }
+  .ai-foot,
+  .ai-pane > .splitter { display: none; }
+  .workspace {
     flex-direction: column;
     gap: 12px;
   }

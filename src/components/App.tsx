@@ -12,6 +12,7 @@ import { BookmarkSearchModal } from './BookmarkSearchModal';
 import { ImportModal } from './ImportModal';
 import { HelpPanel } from './HelpPanel';
 import { NotePanel } from './NotePanel';
+import { AiPanel } from './AiPanel';
 import { useDndRoot } from '@/dnd/dnd';
 
 interface ImportState {
@@ -29,7 +30,7 @@ export function App() {
   const searchOpen = useStore((s) => s.searchOpen);
   const setSearchOpen = useStore((s) => s.setSearchOpen);
   const theme = useStore((s) => s.theme);
-  const [narrow, setNarrow] = useState(() => window.innerWidth <= 1080);
+  const [narrow, setNarrow] = useState(() => window.innerWidth <= 1380);
   const [imp, setImp] = useState<ImportState>(CLOSED);
 
   useDndRoot();
@@ -50,7 +51,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const onResize = () => setNarrow(window.innerWidth <= 1080);
+    const onResize = () => setNarrow(window.innerWidth <= 1380);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -140,24 +141,27 @@ export function App() {
   return (
     <div className="app">
       <div className="main">
-        <section
-          className="panel panel--tabs"
-          style={narrow ? undefined : { width: `${panelWidth}%` }}
-        >
-          <QuickSites />
-          <TabPanel />
-        </section>
+        <AiPanel />
+        <div className="workspace">
+          <section
+            className="panel panel--tabs"
+            style={narrow ? undefined : { width: `${panelWidth}%` }}
+          >
+            <QuickSites />
+            <TabPanel />
+          </section>
 
-        <Splitter />
+          <Splitter />
 
-        <section className="panel panel--bm">
-          <BookmarkTree />
-          <BookmarkGrid
-            onOpenImport={() => openImport()}
-            onOpenSearch={() => setSearchOpen(true)}
-            onFiles={handleFiles}
-          />
-        </section>
+          <section className="panel panel--bm">
+            <BookmarkTree />
+            <BookmarkGrid
+              onOpenImport={() => openImport()}
+              onOpenSearch={() => setSearchOpen(true)}
+              onFiles={handleFiles}
+            />
+          </section>
+        </div>
 
         {/* 便签抽屉：与左右两块同层，收起时宽度归零（组件不卸载） */}
         <NotePanel />
