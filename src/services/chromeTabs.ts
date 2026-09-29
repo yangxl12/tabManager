@@ -1,7 +1,7 @@
 /** chrome.tabs 封装 */
 import type { TabItem } from '@/lib/types';
 import { isSameNewTabUrl, pickNewTabSurvivor } from '@/lib/tabDedupe';
-import { isInternalUrl } from '@/lib/url';
+import { isOpenableUrl } from '@/lib/url';
 
 export function toTabItem(t: chrome.tabs.Tab): TabItem {
   return {
@@ -43,8 +43,12 @@ export async function getTab(id: number): Promise<chrome.tabs.Tab | undefined> {
   }
 }
 
+/**
+ * 新开标签。chrome:// / edge:// 这类内部页也能开（tabs.create 有权限做顶层导航），
+ * 只有 devtools: 这类扩展无权导航的协议直接丢掉。
+ */
 export async function createTab(url: string, active = true): Promise<void> {
-  if (!url || isInternalUrl(url)) return;
+  if (!isOpenableUrl(url)) return;
   await chrome.tabs.create({ url, active });
 }
 

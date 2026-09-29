@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore, useT } from '@/store';
 import { colorFor } from '@/lib/colors';
-import { hostOf, normalizeUrl } from '@/lib/url';
+import { displayUrlOf, isOpenableUrl, normalizeUrl } from '@/lib/url';
 import { IconEye, IconEyeOff, IconPencil, IconTrash } from './icons';
 import { RowMenu } from './RowMenu';
 import { Tile } from './Tile';
@@ -84,7 +84,7 @@ const QuickTile = memo(function QuickTile({
       ref={ref}
       className={cls}
       data-quick-tile={site.id}
-      title={`${site.name} · ${hostOf(site.url)}`}
+      title={`${site.name} · ${displayUrlOf(site.url)}`}
       onClick={() => void openTab(site.url)}
     >
       <Tile url={site.url} seed={site.name} size={42} className="quick-tile__ic" />
@@ -200,7 +200,8 @@ export function QuickSites() {
   };
 
   const openEdit = useCallback((site: QuickSite) => {
-    setForm({ open: true, editingId: site.id, name: site.name, url: hostOf(site.url) });
+    // 内部页必须回填完整地址：hostOf 会把它裁成 'extensions'，一保存就变成 https://extensions
+    setForm({ open: true, editingId: site.id, name: site.name, url: displayUrlOf(site.url) });
   }, []);
 
   const submit = () => {
@@ -209,7 +210,8 @@ export function QuickSites() {
       return;
     }
     const url = normalizeUrl(form.url);
-    if (!url) {
+    // 空值 / 非法地址，以及 devtools: 这类扩展无权导航的协议，都在这里挡回
+    if (!url || !isOpenableUrl(url)) {
       toast(t('quick.badUrl'), { tone: 'warn' });
       return;
     }

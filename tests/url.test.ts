@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hostOf, isInternalUrl, normalizeUrl } from '@/lib/url';
+import { displayUrlOf, hostOf, isInternalUrl, isOpenableUrl, normalizeUrl } from '@/lib/url';
 
 describe('hostOf', () => {
   it('去掉 www. 与路径', () => {
@@ -37,5 +37,29 @@ describe('normalizeUrl', () => {
     expect(isInternalUrl('about:blank')).toBe(true);
     expect(isInternalUrl('https://github.com')).toBe(false);
     expect(isInternalUrl('')).toBe(true);
+  });
+});
+
+describe('isOpenableUrl / displayUrlOf', () => {
+  it('普通网址与浏览器内部页都算能打开（chrome:// 走 tabs.create 有权限）', () => {
+    expect(isOpenableUrl('https://github.com')).toBe(true);
+    expect(isOpenableUrl('chrome://extensions')).toBe(true);
+    expect(isOpenableUrl('chrome://extensions/')).toBe(true);
+    expect(isOpenableUrl('edge://extensions/')).toBe(true);
+    expect(isOpenableUrl('about:blank')).toBe(true);
+    expect(isOpenableUrl('view-source:https://a.com')).toBe(true);
+  });
+
+  it('空值与扩展无权导航的协议算打不开', () => {
+    expect(isOpenableUrl('')).toBe(false);
+    expect(isOpenableUrl('   ')).toBe(false);
+    expect(isOpenableUrl('devtools://devtools/bundled/inspector.html')).toBe(false);
+  });
+
+  it('展示时内部页给完整地址，普通网址只给域名', () => {
+    expect(displayUrlOf('chrome://extensions')).toBe('chrome://extensions');
+    expect(displayUrlOf('edge://settings/')).toBe('edge://settings/');
+    expect(displayUrlOf('https://www.github.com/foo')).toBe('github.com');
+    expect(displayUrlOf('')).toBe('');
   });
 });

@@ -1,7 +1,7 @@
 import { crushCards } from '@/lib/fx';
 import { truncate } from '@/lib/colors';
 import { movePlan } from '@/lib/bookmarkTree';
-import { hostOf, isInternalUrl } from '@/lib/url';
+import { hostOf, isOpenableUrl } from '@/lib/url';
 import { t } from '@/lib/i18n';
 import * as Tabs from '@/services/chromeTabs';
 import { hasChromeApi } from '@/services/storage';
@@ -257,7 +257,8 @@ export const createTabsSlice: SliceCreator<TabsSlice> = (set, get) => {
 
     async openTab(url) {
       if (!url) return;
-      if (isInternalUrl(url)) {
+      // chrome://extensions 这类浏览器内部页也算可打开（createTab 里同样只拦 devtools: 等协议）
+      if (!isOpenableUrl(url)) {
         get().toast(t('toast.internalPage'), { tone: 'warn' });
         return;
       }

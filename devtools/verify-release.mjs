@@ -306,6 +306,62 @@ async function main() {
   console.log('刷新后:', JSON.stringify(afterOut, null, 2));
   if (afterOut.刷新后当前栏 !== '发布验证') failed = true;
 
+  /* ⑥ 快捷访问支持浏览器内部页：chrome://extensions 以前被当「无效地址」拦在门外。
+     真浏览器里 tabs.create 有权限做内部页顶层导航，这里端到端验一遍：加得进 + 点得开。 */
+  console.log('\n=== ⑥ 快捷访问加浏览器内部页 ===');
+  const internal = await send(
+    ws,
+    'Runtime.evaluate',
+    {
+      expression: `(async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const q = (s) => document.querySelector(s);
+        const setVal = (el, v) => {
+          const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set;
+          set.call(el, v);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        const win = (await chrome.tabs.getCurrent()).windowId;
+        const before = (await chrome.tabs.query({ windowId: win })).length;
+
+        q('.quick-tile--add').click();
+        await sleep(400);
+        const fields = [...document.querySelectorAll('.quick-form .fld')];
+        if (fields.length < 2) return JSON.stringify({ 出错: '没找到新增表单' });
+        setVal(fields[0], '扩展程序');
+        setVal(fields[1], 'chrome://extensions');
+        q('.quick-form button[type="submit"]').click();
+        await sleep(700);
+
+        const tile = [...document.querySelectorAll('.quick-tile:not(.quick-tile--add)')]
+          .find((el) => el.querySelector('.quick-tile__nm').textContent === '扩展程序');
+        if (!tile) return JSON.stringify({ 磁贴已加入: false, 有报错提示: false });
+        tile.click();
+        await sleep(2200);
+
+        const tabs = await chrome.tabs.query({ windowId: win });
+        const isInternal = (u) => u.startsWith('chrome://extensions') || u.startsWith('edge://extensions');
+        const opened = tabs.find((t) => isInternal(t.url || ''));
+        const msgs = [...document.querySelectorAll('.toast')].map((el) => el.textContent).join(' | ');
+        if (opened && typeof opened.id === 'number') await chrome.tabs.remove(opened.id);
+        return JSON.stringify({
+          磁贴已加入: true,
+          标签数: before + ' -> ' + tabs.length,
+          打开了内部页: !!opened,
+          新标签地址: opened ? opened.url : '(没开)',
+          有报错提示: /打开失败|不允许插件打开/.test(msgs),
+          提示文案: msgs || '(无提示)',
+        }, null, 2);
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    },
+    ntp.sessionId,
+  );
+  console.log(internal.result.value);
+  const inner = JSON.parse(internal.result.value);
+  if (inner.磁贴已加入 !== true || inner.打开了内部页 !== true || inner.有报错提示 !== false) failed = true;
+
   // 截图存档
   const shotPath = process.env.SHOT_OUT || join(tmpdir(), 'tabnest-newtab.png');
   const shot = await send(ws, 'Page.captureScreenshot', { format: 'png' }, ntp.sessionId);

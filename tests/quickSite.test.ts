@@ -45,11 +45,30 @@ describe('collectQuickSites', () => {
     expect(r.dup).toBe(1);
   });
 
-  it('空网址 / 非法网址 / 浏览器内部页算无效（文件夹与草稿走这条）', () => {
+  it('浏览器内部页（chrome:// / edge://）算有效：tabs.create 打得开，不能拦', () => {
+    const r = collectQuickSites([], [
+      { name: '扩展程序', url: 'chrome://extensions' },
+      { name: 'Edge 扩展', url: 'edge://extensions/' },
+      { name: '空白页', url: 'about:blank' },
+    ]);
+    expect(r.add).toEqual([
+      { name: '扩展程序', url: 'chrome://extensions' },
+      { name: 'Edge 扩展', url: 'edge://extensions/' },
+      { name: '空白页', url: 'about:blank' },
+    ]);
+    expect(r.invalid).toBe(0);
+  });
+
+  it('内部页没标题时用完整地址兜底，不裁成 extensions', () => {
+    const r = collectQuickSites([], [{ name: '  ', url: 'chrome://extensions' }]);
+    expect(r.add[0].name).toBe('chrome://extensions');
+  });
+
+  it('空网址 / 非法网址 / 扩展无权导航的协议算无效（文件夹与草稿走这条）', () => {
     const r = collectQuickSites([], [
       { name: '文件夹', url: '' },
       { name: '草稿', url: '   ' },
-      { name: '设置页', url: 'chrome://settings' },
+      { name: '调试器', url: 'devtools://devtools/bundled/inspector.html' },
       { name: '坏地址', url: 'http://' },
       { name: '好地址', url: 'example.com' },
     ]);

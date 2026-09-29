@@ -1363,6 +1363,38 @@
               }
             }
 
+            // 浏览器内部页（chrome://extensions）以前被当「无效地址」拦掉，现在必须能加入
+            {
+              const internalTab = W.__tabnest.getState().tabs.find((t) => INTERNAL.test(normKey(t.url)));
+              log(!!internalTab, '拖拽前置：有浏览器内部页标签', internalTab ? internalTab.url : '(没有)');
+              if (internalTab) {
+                const ids0 = new Set(Q().map((s) => s.id));
+                const before = Q().length;
+                nativeDrag(tabCell(String(internalTab.id)), pane, 0.5);
+                await sleep(650);
+                log(
+                  Q().length === before + 1,
+                  '拖内部页标签到快捷访问 → 新增磁贴',
+                  `${before} → ${Q().length}`,
+                );
+                const added = newOnes(ids0).pop();
+                log(
+                  !!added && normKey(added.url) === normKey(internalTab.url),
+                  '内部页地址原样入库（不再算无效）',
+                  added ? added.url : '(没加上)',
+                );
+                log(
+                  !!added && $$('.quick-tile__nm').some((el) => el.textContent === added.name),
+                  '内部页磁贴已渲染到网格里',
+                  added ? added.name : '(没加上)',
+                );
+                log(
+                  !!added && normTxt(internalTab.title).slice(0, 24) === added.name,
+                  '内部页磁贴名称取自标签标题',
+                );
+              }
+            }
+
             // 数量上限已移除：超过原上限 16 也照收
             {
               const before = Q().length;
