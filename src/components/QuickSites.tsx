@@ -131,6 +131,8 @@ export function QuickSites() {
   const dropQuick = useStore((s) => s.drag.dropQuick);
   const dropQuickGroupId = useStore((s) => s.drag.dropQuickGroupId);
   const toast = useStore((s) => s.toast);
+  const quickSaveFailed = useStore((s) => s.quickSaveFailed);
+  const retryQuickSave = useStore((s) => s.retryQuickSave);
   const [form, setForm] = useState<FormState>(CLOSED);
   const [groupForm, setGroupForm] = useState<{ id: string | null; name: string } | null>(null);
   const [dragGroupId, setDragGroupId] = useState<string | null>(null);
@@ -226,6 +228,10 @@ export function QuickSites() {
       className={`pane-quick${dropQuick ? ' is-drop' : ''}`}
       data-quick-pane="1"
     >
+      {quickSaveFailed && <div className="quick-save-error" role="alert">
+        {t('quick.saveFailed')}
+        <button onClick={retryQuickSave}>{t('quick.retrySave')}</button>
+      </div>}
       <div className="quick-tabs" role="tablist" aria-label={t('quick.groupsLabel')}>
         <button
             type="button"

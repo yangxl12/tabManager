@@ -37,6 +37,7 @@ export function NotePanel() {
   const noteOpen = useStore((s) => s.noteOpen);
   const noteWidth = useStore((s) => s.noteWidth);
   const noteHtml = useStore((s) => s.noteHtml);
+  const noteSaveFailed = useStore((s) => s.noteSaveFailed);
   const setNoteOpen = useStore((s) => s.setNoteOpen);
   const setNoteWidth = useStore((s) => s.setNoteWidth);
   const setNoteHtml = useStore((s) => s.setNoteHtml);
@@ -44,13 +45,19 @@ export function NotePanel() {
   const editorRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   const dragging = useRef(false);
+  const resizeFrame = useRef<number | null>(null);
+  const pendingWidth = useRef<number | null>(null);
   const wasOpen = useRef(noteOpen);
+  const dirty = useRef(false);
+  const lastLocalHtml = useRef<string | null>(null);
+  const conflictRef = useRef(false);
 
   const [on, setOn] = useState(false);
   const [tools, setTools] = useState<ToolStates>(NO_TOOLS);
   const [empty, setEmpty] = useState(true);
   const [chars, setChars] = useState(0);
   const [saved, setSaved] = useState(true);
+  const [conflict, setConflict] = useState(false);
 
   /* ---------- 编辑器内容 <-> store ---------- */
 
@@ -70,45 +77,63 @@ export function NotePanel() {
   useEffect(() => {
     const el = editorRef.current;
     if (!el || el.innerHTML === noteHtml) return;
-    if (document.activeElement === el) return;
+    if (noteHtml === lastLocalHtml.current) return;
+    if (dirty.current) {
+      conflictRef.current = true;
+      setConflict(true);
+      return;
+    }
     el.innerHTML = noteHtml;
     syncMeta();
   }, [noteHtml, syncMeta]);
 
-  const flushSave = useCallback(() => {
+  const flushSave = useCallback((force = false) => {
     if (saveTimer.current !== undefined) {
       window.clearTimeout(saveTimer.current);
       saveTimer.current = undefined;
     }
     const el = editorRef.current;
-    if (!el) return;
-    setSaved(true);
-    setNoteHtml(el.innerHTML);
+    if (!el || !dirty.current || (conflictRef.current && !force)) return;
+    const html = el.innerHTML;
+    lastLocalHtml.current = html;
+    void setNoteHtml(html).then((ok) => {
+      if (ok && editorRef.current?.innerHTML === html && !conflictRef.current) {
+        dirty.current = false;
+        setSaved(true);
+        setConflict(false);
+      } else if (!ok) {
+        setSaved(false);
+      }
+    });
   }, [setNoteHtml]);
 
   const scheduleSave = useCallback(() => {
+    dirty.current = true;
     setSaved(false);
     if (saveTimer.current !== undefined) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       saveTimer.current = undefined;
-      setNoteHtml(editorRef.current?.innerHTML ?? '');
-      setSaved(true);
+      flushSave();
     }, SAVE_DEBOUNCE);
-  }, [setNoteHtml]);
+  }, [flushSave]);
+
+  const flushRef = useRef(flushSave);
+  flushRef.current = flushSave;
 
   // 页面隐藏 / 卸载前把没落库的草稿冲掉，防抖定时器跑不完也不丢内容
   useEffect(() => {
     const onHide = () => {
-      if (document.visibilityState === 'hidden') flushSave();
+      if (document.visibilityState === 'hidden') flushRef.current();
     };
-    window.addEventListener('beforeunload', flushSave);
+    const onUnload = () => flushRef.current();
+    window.addEventListener('beforeunload', onUnload);
     document.addEventListener('visibilitychange', onHide);
     return () => {
-      window.removeEventListener('beforeunload', flushSave);
+      window.removeEventListener('beforeunload', onUnload);
       document.removeEventListener('visibilitychange', onHide);
-      flushSave();
+      flushRef.current();
     };
-  }, [flushSave]);
+  }, []);
 
   /* ---------- 富文本工具条（contentEditable + execCommand） ---------- */
 
@@ -214,19 +239,30 @@ export function NotePanel() {
       // 面板贴 .main 右缘：宽度 = 右缘 - 指针；上限还要给标签面板与书签面板留地
       const tabsW = document.querySelector('.panel--tabs')?.getBoundingClientRect().width ?? 0;
       const hi = Math.min(NOTE_WIDTH_MAX, Math.floor(rect.width - tabsW - 286));
-      setNoteWidth(clampNoteWidth(Math.min(rect.right - e.clientX, Math.max(NOTE_WIDTH_MIN, hi))));
+      pendingWidth.current = clampNoteWidth(Math.min(rect.right - e.clientX, Math.max(NOTE_WIDTH_MIN, hi)));
+      if (resizeFrame.current === null) resizeFrame.current = window.requestAnimationFrame(() => {
+        resizeFrame.current = null;
+        if (pendingWidth.current !== null) setNoteWidth(pendingWidth.current, false);
+      });
     };
     const up = () => {
       if (!dragging.current) return;
       dragging.current = false;
+      if (resizeFrame.current !== null) window.cancelAnimationFrame(resizeFrame.current);
+      resizeFrame.current = null;
+      setNoteWidth(pendingWidth.current ?? useStore.getState().noteWidth, true);
+      pendingWidth.current = null;
       setOn(false);
       document.body.classList.remove('resizing');
     };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
+    window.addEventListener('blur', up);
     return () => {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
+      window.removeEventListener('blur', up);
+      if (resizeFrame.current !== null) window.cancelAnimationFrame(resizeFrame.current);
     };
   }, [setNoteWidth]);
 
@@ -315,7 +351,7 @@ export function NotePanel() {
             onInput={onInput}
             onPaste={onPaste}
             onKeyUp={refreshTools}
-            onBlur={flushSave}
+            onBlur={() => flushSave()}
             onKeyDown={(e) => {
               // Esc 不外泄：在便签里按 Esc 只停下，别顺手关掉别的东西
               if (e.key === 'Escape') e.stopPropagation();
@@ -325,9 +361,29 @@ export function NotePanel() {
 
         <div className="note-foot">
           <span className={`note-dot${saved ? '' : ' busy'}`} />
-          <span className="note-save">{saved ? t('note.saved') : t('note.saving')}</span>
+          <span className="note-save">{noteSaveFailed ? t('note.saveFailed') : saved ? t('note.saved') : t('note.saving')}</span>
+          {noteSaveFailed && <button onClick={() => flushSave(true)}>{t('note.retry')}</button>}
           <span className="note-count">{t('note.count', { n: chars })}</span>
         </div>
+        {conflict && <div className="note-conflict" role="alert">
+          <span>{t('note.conflict')}</span>
+          <button onClick={() => {
+            conflictRef.current = false;
+            setConflict(false);
+            flushSave(true);
+          }}>{t('note.keepMine')}</button>
+          <button onClick={() => {
+            if (saveTimer.current !== undefined) window.clearTimeout(saveTimer.current);
+            dirty.current = true;
+            conflictRef.current = false;
+            lastLocalHtml.current = null;
+            if (editorRef.current) editorRef.current.innerHTML = noteHtml;
+            syncMeta();
+            setConflict(false);
+            setSaved(false);
+            flushSave(true);
+          }}>{t('note.useRemote')}</button>
+        </div>}
       </div>
     </aside>
   );

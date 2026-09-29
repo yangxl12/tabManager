@@ -79,12 +79,28 @@ export interface BookmarksSlice {
 let bmSyncTimer: number | null = null;
 
 export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => {
+  let undoInProgress = false;
+  let moveDepth = 0;
+  let moveEpoch = 0;
   const scheduleSync = () => {
+    if (moveDepth) return;
     if (bmSyncTimer !== null) window.clearTimeout(bmSyncTimer);
     bmSyncTimer = window.setTimeout(() => {
       bmSyncTimer = null;
       void get().syncBookmarks();
     }, 70);
+  };
+  const finishMove = async () => {
+    moveDepth -= 1;
+    if (moveDepth === 0) {
+      if (bmSyncTimer !== null) window.clearTimeout(bmSyncTimer);
+      bmSyncTimer = null;
+      try {
+        await get().syncBookmarks();
+      } catch (err) {
+        get().toast(t('toast.syncFail', { msg: (err as Error).message }), { tone: 'warn' });
+      }
+    }
   };
 
   const isDraft = (id: string) => !!get().bm.nodes[id]?.isDraft;
@@ -186,7 +202,9 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
 
     async syncBookmarks() {
       if (!hasChromeApi()) return;
+      const epoch = moveEpoch;
       const raw = await Bookmarks.getTree();
+      if (moveDepth || epoch !== moveEpoch) return;
       const next = normalizeTree(raw);
       set((s) => {
         // 保留本地草稿节点
@@ -412,30 +430,32 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         for (const id of real) if (!s.closingBms.includes(id)) s.closingBms.push(id);
       });
 
-      window.setTimeout(() => {
-        void Promise.all(real.map((id) => Bookmarks.removeNode(id)))
-          .then(() => {
-            const label =
-              real.length === 1
-                ? t('toast.delOne', { t: truncate(records[0]?.node.title || '', 16) })
-                : t('toast.delMany', { n: real.length });
-            set((s) => {
-              s.undoStack.push({ items: records, label });
-              if (s.undoStack.length > 12) s.undoStack.shift();
-            });
-            get().toast(t('toast.deleted', { label }), {
-              action: t('toast.undoAction'),
-              onAction: () => void get().undo(),
-            });
-          })
-          .catch((err: Error) => {
-            set((s) => {
-              s.closingBms = s.closingBms.filter((x) => !real.includes(x));
-            });
-            get().toast(t('toast.delFail', { msg: err.message }), { tone: 'warn' });
-            void get().syncBookmarks();
-          });
-      }, wait || 10);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, wait || 10));
+      const results = await Promise.allSettled(real.map((id) => Bookmarks.removeNode(id)));
+      const removed = real.filter((_, i) => results[i].status === 'fulfilled');
+      const failed = real.filter((_, i) => results[i].status === 'rejected');
+      const removedRecords = records.filter((item) => removed.includes(item.node.id));
+      if (removedRecords.length) {
+        const label =
+          removedRecords.length === 1
+            ? t('toast.delOne', { t: truncate(removedRecords[0].node.title, 16) })
+            : t('toast.delMany', { n: removedRecords.length });
+        set((s) => {
+          s.undoStack.push({ id: uid('undo'), items: removedRecords, label });
+          if (s.undoStack.length > 12) s.undoStack.shift();
+        });
+        get().toast(t('toast.deleted', { label }), {
+          action: t('toast.undoAction'),
+          onAction: () => void get().undo(),
+        });
+      }
+      if (failed.length) {
+        set((s) => {
+          s.closingBms = s.closingBms.filter((x) => !failed.includes(x));
+        });
+        get().toast(t('toast.delPartial', { ok: removed.length, fail: failed.length }), { tone: 'warn' });
+      }
+      await get().syncBookmarks();
     },
 
     deleteFolderTree(id) {
@@ -477,14 +497,14 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
     },
 
     async undo() {
+      if (undoInProgress) return;
       const stack = get().undoStack;
       const rec = stack[stack.length - 1];
       if (!rec) {
         get().toast(t('toast.noUndo'), { tone: 'warn' });
         return;
       }
-      set((s) => void s.undoStack.pop());
-
+      undoInProgress = true;
       const created: string[] = [];
       const sorted = [...rec.items].sort((a, b) => a.index - b.index);
       try {
@@ -496,6 +516,11 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
             item.index,
           );
           created.push(made.id);
+          set((s) => {
+            const pending = s.undoStack.find((entry) => entry.id === rec.id);
+            if (pending) pending.items = pending.items.filter((x) => x.node.id !== item.node.id);
+            if (pending && !pending.items.length) s.undoStack = s.undoStack.filter((entry) => entry.id !== rec.id);
+          });
           set((s) => {
             upsertNode(s.bm, {
               id: made.id,
@@ -513,8 +538,10 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         get().flashBms(created);
         get().toast(t('toast.undone', { n: created.length }));
       } catch (err) {
-        get().toast(t('toast.undoFail', { msg: (err as Error).message }), { tone: 'warn' });
-        void get().syncBookmarks();
+        get().toast(t('toast.undoPartial', { ok: created.length, left: sorted.length - created.length, msg: (err as Error).message }), { tone: 'warn' });
+        await get().syncBookmarks();
+      } finally {
+        undoInProgress = false;
       }
     },
 
@@ -619,7 +646,10 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
           : Math.max(0, Math.min(index, target.children.length));
 
       const targetSyncing = target.syncing;
-      const snapshot = JSON.parse(JSON.stringify(get().bm)) as BmState;
+      if (bmSyncTimer !== null) window.clearTimeout(bmSyncTimer);
+      bmSyncTimer = null;
+      moveDepth += 1;
+      moveEpoch += 1;
       set((s) => {
         let i = base;
         for (const id of movable) {
@@ -642,9 +672,9 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
         get().toast(t('toast.moved', { t: truncate(landed, 12) }));
         get().flashBms(movable);
       } catch (err) {
-        set((s) => void (s.bm = snapshot));
         get().toast(t('toast.moveFail', { msg: (err as Error).message }), { tone: 'warn' });
-        void get().syncBookmarks();
+      } finally {
+        await finishMove();
       }
     },
 
@@ -655,7 +685,10 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       const plan = movePlan(before, order);
       if (!plan.length) return;
 
-      const snapshot = JSON.parse(JSON.stringify(get().bm)) as BmState;
+      if (bmSyncTimer !== null) window.clearTimeout(bmSyncTimer);
+      bmSyncTimer = null;
+      moveDepth += 1;
+      moveEpoch += 1;
       set((s) => {
         const p = s.bm.nodes[parentId];
         if (p) p.children = [...order];
@@ -664,9 +697,9 @@ export const createBookmarksSlice: SliceCreator<BookmarksSlice> = (set, get) => 
       try {
         for (const step of plan) await Bookmarks.moveNode(step.id, parentId, step.index);
       } catch (err) {
-        set((s) => void (s.bm = snapshot));
         get().toast(t('toast.reorderFail', { msg: (err as Error).message }), { tone: 'warn' });
-        void get().syncBookmarks();
+      } finally {
+        await finishMove();
       }
     },
 

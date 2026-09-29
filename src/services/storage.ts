@@ -30,12 +30,13 @@ export async function getLocalArray<T>(key: string, fallback: T[] = []): Promise
   return asArray<T>(await getLocal<unknown>(key, fallback), fallback);
 }
 
-export async function setLocal(key: string, value: unknown): Promise<void> {
-  if (!hasChromeApi()) return;
+export async function setLocal(key: string, value: unknown): Promise<boolean> {
+  if (!hasChromeApi()) return true;
   try {
     await chrome.storage.local.set({ [key]: value });
+    return true;
   } catch {
-    /* 忽略写入失败（例如配额） */
+    return false;
   }
 }
 

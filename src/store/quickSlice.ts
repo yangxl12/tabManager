@@ -69,6 +69,8 @@ export interface QuickSlice {
   quickGroups: QuickGroup[];
   activeQuickGroupId: string;
   quickLoaded: boolean;
+  quickSaveFailed: boolean;
+  retryQuickSave: () => void;
   setActiveQuickGroup: (id: string) => void;
   addQuickGroup: (name: string) => void;
   renameQuickGroup: (id: string, name: string) => void;
@@ -86,11 +88,31 @@ export interface QuickSlice {
   initQuick: () => Promise<void>;
 }
 
-export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
+export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => {
+  const failed = new Map<string, () => unknown>();
+  const revisions = new Map<string, number>();
+  const persist = (key: string, current: () => unknown) => {
+    const revision = (revisions.get(key) ?? 0) + 1;
+    revisions.set(key, revision);
+    void setLocal(key, current()).then((ok) => {
+      if (revisions.get(key) !== revision) return;
+      if (ok) failed.delete(key);
+      else failed.set(key, current);
+      set((s) => { s.quickSaveFailed = failed.size > 0; });
+      if (!ok) get().toast(t('quick.saveFailed'), {
+        tone: 'warn', action: t('quick.retrySave'), onAction: () => persist(key, current),
+      });
+    });
+  };
+  return ({
   quickSites: DEFAULT_SITES.map((s) => ({ id: uid('q'), ...s })),
   quickGroups: [],
   activeQuickGroupId: DEFAULT_QUICK_GROUP_ID,
   quickLoaded: false,
+  quickSaveFailed: false,
+  retryQuickSave() {
+    for (const [key, current] of failed) persist(key, current);
+  },
 
   setActiveQuickGroup(id) {
     if (id !== DEFAULT_QUICK_GROUP_ID && !get().quickGroups.some((g) => g.id === id && !g.hidden)) return;
@@ -107,7 +129,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       s.quickGroups.push({ id, name: clean });
       s.activeQuickGroupId = id;
     });
-    void setLocal(KEYS.quickGroups, get().quickGroups);
+    persist(KEYS.quickGroups, () => get().quickGroups);
     // 新建后自动切到新分组，这份「上次点的是哪一栏」也要落盘
     void setLocal(KEYS.quickGroup, id);
   },
@@ -120,7 +142,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       const group = s.quickGroups.find((g) => g.id === id);
       if (group) group.name = clean;
     });
-    void setLocal(KEYS.quickGroups, get().quickGroups);
+    persist(KEYS.quickGroups, () => get().quickGroups);
   },
 
   removeQuickGroup(id) {
@@ -131,8 +153,8 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       s.quickSites = s.quickSites.filter((q) => quickGroupOf(q) !== id);
       if (s.activeQuickGroupId === id) s.activeQuickGroupId = DEFAULT_QUICK_GROUP_ID;
     });
-    void setLocal(KEYS.quickGroups, get().quickGroups);
-    void setLocal(KEYS.quickSites, get().quickSites);
+    persist(KEYS.quickGroups, () => get().quickGroups);
+    persist(KEYS.quickSites, () => get().quickSites);
     // 删掉的正是在看的那一栏时，落盘的记忆也要跟着回落，别留死 id
     if (wasActive) void setLocal(KEYS.quickGroup, DEFAULT_QUICK_GROUP_ID);
   },
@@ -145,7 +167,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       if (group) group.hidden = hidden;
       if (hidden && s.activeQuickGroupId === id) s.activeQuickGroupId = DEFAULT_QUICK_GROUP_ID;
     });
-    void setLocal(KEYS.quickGroups, get().quickGroups);
+    persist(KEYS.quickGroups, () => get().quickGroups);
     if (wasActive) void setLocal(KEYS.quickGroup, DEFAULT_QUICK_GROUP_ID);
   },
 
@@ -164,7 +186,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
     for (const group of groups) if (!seen.has(group.id)) ordered.push(group);
     if (ordered.every((group, index) => group.id === groups[index].id)) return;
     set((s) => { s.quickGroups = ordered; });
-    void setLocal(KEYS.quickGroups, get().quickGroups);
+    persist(KEYS.quickGroups, () => get().quickGroups);
   },
 
   // 快捷访问不设数量上限：多了由用户自己删，别用软上限拦人（拖拽批量加入时尤其别扭）
@@ -174,7 +196,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
     set((s) => {
       s.quickSites.push({ id: uid('q'), name: name.trim(), url: url.trim(), groupId });
     });
-    void setLocal(KEYS.quickSites, get().quickSites);
+    persist(KEYS.quickSites, () => get().quickSites);
   },
 
   addQuickSites(items, groupId = get().activeQuickGroupId) {
@@ -184,7 +206,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       set((s) => {
         for (const it of res.add) s.quickSites.push({ id: uid('q'), ...it, groupId });
       });
-      void setLocal(KEYS.quickSites, get().quickSites);
+      persist(KEYS.quickSites, () => get().quickSites);
     }
     const skipped = res.dup + res.invalid;
     if (!res.add.length) {
@@ -204,14 +226,14 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
         item.url = url.trim();
       }
     });
-    void setLocal(KEYS.quickSites, get().quickSites);
+    persist(KEYS.quickSites, () => get().quickSites);
   },
 
   removeQuick(id) {
     set((s) => {
       s.quickSites = s.quickSites.filter((q) => q.id !== id);
     });
-    void setLocal(KEYS.quickSites, get().quickSites);
+    persist(KEYS.quickSites, () => get().quickSites);
   },
 
   moveQuickToGroup(id, groupId) {
@@ -225,7 +247,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       moved.groupId = groupId;
       s.quickSites.push(moved);
     });
-    void setLocal(KEYS.quickSites, get().quickSites);
+    persist(KEYS.quickSites, () => get().quickSites);
     const name = groupId === DEFAULT_QUICK_GROUP_ID
       ? t('quick.defaultGroup')
       : get().quickGroups.find((g) => g.id === groupId)?.name ?? '';
@@ -253,7 +275,7 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
       let index = 0;
       s.quickSites = s.quickSites.map((q) => quickGroupOf(q) === groupId ? next[index++] : q);
     });
-    void setLocal(KEYS.quickSites, get().quickSites);
+    persist(KEYS.quickSites, () => get().quickSites);
   },
 
   async initQuick() {
@@ -291,12 +313,15 @@ export const createQuickSlice: SliceCreator<QuickSlice> = (set, get) => ({
     });
     // 存储里是脏值（分组已删）时顺手订正回去，避免每次启动都要回落一次
     if (active !== storedActive) void setLocal(KEYS.quickGroup, active);
-    if (JSON.stringify(groups) !== JSON.stringify(existingGroups)) await setLocal(KEYS.quickGroups, groups);
+    if (JSON.stringify(groups) !== JSON.stringify(existingGroups)) persist(KEYS.quickGroups, () => get().quickGroups);
+    let sitesSaved = true;
     if (!curatedSeededV2 || JSON.stringify(stored) !== JSON.stringify(rawSites)) {
-      await setLocal(KEYS.quickSites, sites);
+      sitesSaved = await setLocal(KEYS.quickSites, sites);
+      if (!sitesSaved) persist(KEYS.quickSites, () => get().quickSites);
     }
-    if (!curatedSeededV2) {
+    if (!curatedSeededV2 && sitesSaved) {
       await setLocal(KEYS.curatedQuickSeededV2, true);
     }
   },
-});
+  });
+};

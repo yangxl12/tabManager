@@ -6,10 +6,9 @@ import { BookmarkCard } from './BookmarkCard';
 import { ToolsMenu } from './ToolsMenu';
 import { domCells, useAutoScroll, useExternalFileTarget, useFolderTarget, usePaneTarget } from '@/dnd/dnd';
 
-function SubChip({ id }: { id: string }) {
+function SubChip({ id, count }: { id: string; count: number }) {
   const chipRef = useRef<HTMLButtonElement>(null);
   const node = useStore((s) => s.bm.nodes[id]);
-  const count = useStore((s) => countOf(s.bm, id));
   const goto = useStore((s) => s.gotoFolder);
   const isDrop = useStore((s) => s.drag.dropFolderId === id);
   useFolderTarget({ elementRef: chipRef, id });
@@ -59,6 +58,7 @@ export function BookmarkGrid({
   const folder = bm.nodes[currentFolder];
   const all = useMemo(() => childrenOf(bm, currentFolder), [bm, currentFolder]);
   const kids = useMemo(() => all.filter((n) => n.isFolder), [all]);
+  const kidCounts = useMemo(() => new Map(kids.map((node) => [node.id, countOf(bm, node.id)])), [bm, kids]);
   const crumb = useMemo(() => pathOf(bm, currentFolder), [bm, currentFolder]);
 
   const list = useMemo(() => all.filter((n) => !n.isFolder), [all]);
@@ -162,7 +162,7 @@ export function BookmarkGrid({
       {kids.length ? (
         <div className="subchips">
           {kids.map((k) => (
-            <SubChip key={k.id} id={k.id} />
+            <SubChip key={k.id} id={k.id} count={kidCounts.get(k.id) ?? 0} />
           ))}
         </div>
       ) : null}

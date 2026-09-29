@@ -161,6 +161,7 @@ export const createTabsSlice: SliceCreator<TabsSlice> = (set, get) => {
       chrome.tabs.onAttached.addListener(() => scheduleSync());
       chrome.tabs.onDetached.addListener(() => scheduleSync());
       chrome.tabs.onActivated.addListener((info) => {
+        if (get().selfWindowId != null && info.windowId !== get().selfWindowId) return;
         set((s) => {
           for (const t of s.tabs) t.active = t.id === info.tabId;
         });

@@ -51,7 +51,7 @@ export interface UiSlice {
   setHelpOpen: (v: boolean) => void;
     setTheme: (m: ThemeMode) => void;
   setLang: (l: Lang) => void;
-  setPanelWidth: (w: number) => void;
+  setPanelWidth: (w: number, persist?: boolean) => void;
   setDrag: (patch: Partial<DragState>) => void;
   resetDrag: () => void;
   toast: (input: ToastInput | string, options?: Partial<ToastInput>) => string;
@@ -116,11 +116,11 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
       void setLocal(KEYS.lang, l);
     }),
 
-  setPanelWidth: (w) =>
-    set((s) => {
-      s.panelWidth = Math.max(30, Math.min(70, w));
-      void setLocal(KEYS.panelWidth, s.panelWidth);
-    }),
+  setPanelWidth: (w, persist = true) => {
+    const width = Math.max(30, Math.min(70, w));
+    if (width !== get().panelWidth) set((s) => { s.panelWidth = width; });
+    if (persist) void setLocal(KEYS.panelWidth, width);
+  },
 
   toast: (input, options) => {
     const opts: ToastInput =

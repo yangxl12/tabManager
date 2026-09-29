@@ -87,6 +87,7 @@ export interface ToastItem {
 
 /** 撤销栈记录：一次删除（可能含多条）为一条记录 */
 export interface UndoRecord {
+  id: string;
   items: Array<{ parentId: string; index: number; node: BmNode; snapshot: BmNode[] }>;
   label: string;
 }

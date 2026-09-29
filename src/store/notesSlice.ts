@@ -20,18 +20,23 @@ export interface NotesSlice {
   noteWidth: number;
   /** 编辑器内容（HTML）。只在首帧 / 外部变更时回灌 DOM，本地输入靠防抖写回 */
   noteHtml: string;
+  noteSaveFailed: boolean;
   setNoteOpen: (v: boolean) => void;
   toggleNote: () => void;
-  setNoteWidth: (w: number) => void;
-  setNoteHtml: (html: string) => void;
+  setNoteWidth: (w: number, persist?: boolean) => void;
+  setNoteHtml: (html: string) => Promise<boolean>;
   initNotes: () => Promise<void>;
 }
 
-export const createNotesSlice: SliceCreator<NotesSlice> = (set, get) => ({
+export const createNotesSlice: SliceCreator<NotesSlice> = (set, get) => {
+  let writeQueue: Promise<unknown> = Promise.resolve();
+  let revision = 0;
+  return ({
   // 初值直接取镜像：上次展开 / 收起与宽度在第一帧就要生效，不闪过渡动画
   noteOpen: readMirrorNoteOpen(),
   noteWidth: readMirrorNoteWidth(),
   noteHtml: readMirrorNoteHtml(),
+  noteSaveFailed: false,
 
   setNoteOpen: (v) =>
     set((s) => {
@@ -42,23 +47,29 @@ export const createNotesSlice: SliceCreator<NotesSlice> = (set, get) => ({
 
   toggleNote: () => get().setNoteOpen(!get().noteOpen),
 
-  setNoteWidth: (w) => {
+  setNoteWidth: (w, persist = true) => {
     const clamped = clampNoteWidth(w);
-    if (clamped === get().noteWidth) return;
-    set((s) => {
-      s.noteWidth = clamped;
-    });
-    void setLocal(KEYS.noteWidth, clamped);
-    writeNoteMirror({ width: clamped });
+    if (clamped !== get().noteWidth) set((s) => { s.noteWidth = clamped; });
+    if (persist) {
+      void setLocal(KEYS.noteWidth, clamped);
+      writeNoteMirror({ width: clamped });
+    }
   },
 
-  setNoteHtml: (html) => {
-    if (html === get().noteHtml) return;
+  setNoteHtml: async (html) => {
+    const currentRevision = ++revision;
     set((s) => {
       s.noteHtml = html;
+      s.noteSaveFailed = false;
     });
-    void setLocal(KEYS.note, html);
-    writeNoteMirror({ html });
+    const write = writeQueue.then(() => setLocal(KEYS.note, html));
+    writeQueue = write;
+    const saved = await write;
+    if (currentRevision === revision) {
+      set((s) => { s.noteSaveFailed = !saved; });
+      if (saved) writeNoteMirror({ html });
+    }
+    return saved;
   },
 
   initNotes: async () => {
@@ -74,4 +85,5 @@ export const createNotesSlice: SliceCreator<NotesSlice> = (set, get) => ({
       s.noteHtml = asStr(storedHtml, s.noteHtml);
     });
   },
-});
+  });
+};

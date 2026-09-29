@@ -4,7 +4,7 @@
  * node 环境没有 localStorage，镜像读取全部走 catch 回落默认 ——
  * 正好覆盖「镜像不可用」这一支（与 storeInit.test.ts 的脏存储用例同源）。
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '@/store';
 import { clampNoteWidth, normalizeNoteWidth } from '@/lib/noteMirror';
 
@@ -81,6 +81,32 @@ describe('便签 setter', () => {
 
     expect(useStore.getState().noteOpen).toBe(true);
     expect(useStore.getState().noteHtml).toBe('<ul><li>x</li></ul>');
+  });
+
+  it('存储写失败会保留当前内容并提供重试结果', async () => {
+    installFakeChrome({});
+    const set = vi.fn().mockRejectedValueOnce(new Error('quota')).mockResolvedValue(undefined);
+    chrome.storage.local.set = set;
+    expect(await useStore.getState().setNoteHtml('<p>draft</p>')).toBe(false);
+    expect(useStore.getState().noteHtml).toBe('<p>draft</p>');
+    expect(useStore.getState().noteSaveFailed).toBe(true);
+    expect(await useStore.getState().setNoteHtml('<p>draft</p>')).toBe(true);
+    expect(useStore.getState().noteSaveFailed).toBe(false);
+  });
+});
+
+describe('快捷访问保存失败', () => {
+  it('保留内存修改和可重试状态', async () => {
+    installFakeChrome({});
+    useStore.setState({ quickSaveFailed: false });
+    const set = vi.fn().mockRejectedValueOnce(new Error('quota')).mockResolvedValue(undefined);
+    chrome.storage.local.set = set;
+    useStore.getState().addQuick('Retry', 'https://retry.example');
+    await vi.waitFor(() => expect(useStore.getState().quickSaveFailed).toBe(true));
+    expect(useStore.getState().quickSites.some((site) => site.name === 'Retry')).toBe(true);
+    useStore.getState().retryQuickSave();
+    await vi.waitFor(() => expect(useStore.getState().quickSaveFailed).toBe(false));
+    expect(set).toHaveBeenCalledTimes(2);
   });
 });
 

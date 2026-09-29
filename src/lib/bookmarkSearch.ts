@@ -36,14 +36,26 @@ export function searchBookmarks(state: BmState, rawQuery: string, limit = 80): S
       else if (node.url.toLowerCase().includes(q)) score = 18;
     }
 
-    const parents = pathOf(state, node.id).slice(0, -1);
-    if (!score && parents.some((p) => p.title.toLowerCase().includes(q))) score = 10;
+    if (!score) {
+      let parentId = node.parentId;
+      const seen = new Set<string>();
+      while (parentId && !seen.has(parentId)) {
+        seen.add(parentId);
+        const parent = state.nodes[parentId];
+        if (!parent) break;
+        if (parent.title.toLowerCase().includes(q)) {
+          score = 10;
+          break;
+        }
+        parentId = parent.parentId;
+      }
+    }
     if (!score) continue;
 
     // 同分时短标题优先；文件夹整体降权，排在书签后面（它的用途是跳转）
     hits.push({
       node,
-      path: parents,
+      path: pathOf(state, node.id).slice(0, -1),
       score: score - (node.isFolder ? 6 : 0) - Math.min(6, title.length * 0.06),
     });
   }

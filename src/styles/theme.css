@@ -2221,6 +2221,41 @@ body.resizing .note-pane {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
 }
+.note-conflict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--color-amber);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+.note-conflict span { flex-basis: 100%; }
+.note-conflict button,
+.note-foot button {
+  padding: 3px 6px;
+  border: 1px solid var(--color-line-2);
+  border-radius: 6px;
+  color: var(--color-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.quick-save-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+.quick-save-error button {
+  border: 0;
+  background: transparent;
+  color: var(--color-jade);
+  cursor: pointer;
+}
 
 /* 窄屏：主区变纵向，便签转为底部抽屉（只动高度，拖拽条收起） */
 @media (max-width: 1080px) {
