@@ -86,9 +86,7 @@ export function AiPanel() {
     <aside className="ai-pane" style={{ '--ai-width': `${width}px` } as CSSProperties} aria-label={t('ai.title')}>
       <div className="panel ai-inner">
         <div className="ai-head">
-          <div className="ai-head__eyebrow"><span className="ai-head__spark">✳</span> AI ATLAS <span className="ai-head__count">/ 08</span></div>
           <h2>{t('ai.title')}</h2>
-          <p>{t('ai.subtitle')}</p>
         </div>
 
         <div className="ai-list scroll">
@@ -112,8 +110,6 @@ export function AiPanel() {
             </a>
           ))}
         </div>
-
-        <div className="ai-foot"><span className="ai-foot__line" />{t('ai.footer')}<span className="ai-foot__line" /></div>
       </div>
       <div
         className={`splitter${active ? ' on' : ''}`}

@@ -302,38 +302,12 @@ textarea {
   padding: 0 9px 17px;
   border-bottom: 1px solid var(--color-line-2);
 }
-.ai-head__eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-muted);
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.18em;
-}
-.ai-head__spark {
-  color: var(--color-jade);
-  font-size: 16px;
-  line-height: 1;
-  letter-spacing: 0;
-}
-.ai-head__count {
-  margin-left: auto;
-  color: var(--color-faint);
-  letter-spacing: 0.05em;
-}
 .ai-head h2 {
-  margin: 12px 0 2px;
+  margin: 0;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.3;
-}
-.ai-head p {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 10.5px;
-  white-space: nowrap;
 }
 .ai-list {
   flex: 1;
@@ -449,23 +423,6 @@ html[data-theme='dark'] .ai-link[data-site='chatgpt'] .ai-link__mark img {
 .ai-link[data-site='doubao'] { --ai-accent: #c66e82; }
 .ai-link[data-site='grok'] { --ai-accent: #797e7a; }
 .ai-link[data-site='gemini'] { --ai-accent: #6895bd; }
-.ai-foot {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  justify-content: center;
-  flex: none;
-  padding: 11px 0 3px;
-  color: var(--color-faint);
-  font-size: 9px;
-  white-space: nowrap;
-  letter-spacing: 0.03em;
-}
-.ai-foot__line {
-  width: 13px;
-  height: 1px;
-  background: var(--color-line);
-}
 @keyframes ai-arrive {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -2512,10 +2469,7 @@ body.resizing .note-pane {
     padding: 0 3px 5px;
     border: 0;
   }
-  .ai-head__eyebrow { gap: 3px; }
-  .ai-head__count { display: none; }
   .ai-head h2 { margin: 0; font-size: 16px; }
-  .ai-head p { display: none; }
   .ai-list {
     flex-direction: row;
     gap: 7px;
@@ -2524,7 +2478,6 @@ body.resizing .note-pane {
     padding: 3px 2px 5px;
   }
   .ai-link { width: 163px; min-height: 0; padding: 6px 8px; }
-  .ai-foot,
   .ai-pane > .splitter { display: none; }
   .workspace {
     flex-direction: column;

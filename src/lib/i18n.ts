@@ -125,9 +125,7 @@ const zh = {
 
   // 便签面板
   'ai.title': '灵感入口',
-  'ai.subtitle': '打开一个空间，继续你的想法。',
   'ai.open': '在新标签页打开官网',
-  'ai.footer': '选择一种对话，开始探索',
   'note.btn': '便签',
   'note.title': '便签',
   'note.ph': '随手记：待办、想法、容易忘的事…',
@@ -333,9 +331,7 @@ const en: Record<I18nKey, string> = {
   'search.count': '{n} bookmarks',
 
   'ai.title': 'AI spaces',
-  'ai.subtitle': 'A place for your next thought.',
   'ai.open': 'Open official site in a new tab',
-  'ai.footer': 'Pick a conversation to begin',
   'note.btn': 'Notes',
   'note.title': 'Notes',
   'note.ph': 'Jot down todos, ideas, things you keep forgetting…',
