@@ -390,12 +390,18 @@ textarea {
   display: grid;
   place-items: center;
   border-radius: 9px;
-  color: var(--color-ink);
   background: color-mix(in srgb, var(--ai-accent) 15%, var(--color-panel));
-  font-size: 12px;
-  font-weight: 750;
-  letter-spacing: -0.04em;
   transition: background-color 0.2s var(--ease-nest);
+}
+.ai-link__mark img {
+  display: block;
+  width: 29px;
+  height: 29px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+html[data-theme='dark'] .ai-link[data-site='chatgpt'] .ai-link__mark img {
+  filter: invert(1);
 }
 .ai-link:hover .ai-link__mark,
 .ai-link:focus-visible .ai-link__mark {

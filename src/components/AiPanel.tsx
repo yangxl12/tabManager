@@ -4,14 +4,14 @@ import { AI_WIDTH_MAX, AI_WIDTH_MIN, MIN_WORKSPACE_WIDTH, clampAiWidth } from '@
 import { useStore, useT } from '@/store';
 
 const sites = [
-  { id: 'chatgpt', name: 'ChatGPT', mark: '◎', url: 'https://chatgpt.com/', zh: '对话与创作', en: 'Ideas & writing' },
-  { id: 'deepseek', name: 'DeepSeek', mark: 'DS', url: 'https://chat.deepseek.com/', zh: '深度思考', en: 'Deep reasoning' },
-  { id: 'chatglm', name: '智谱清言', mark: 'GL', url: 'https://chatglm.cn/', zh: '灵感与探索', en: 'Explore & create' },
-  { id: 'yuanbao', name: '元宝', mark: '元', url: 'https://yuanbao.tencent.com/', zh: '搜索与问答', en: 'Search & answers' },
-  { id: 'kimi', name: 'Kimi', mark: 'K', url: 'https://www.kimi.com/', zh: '阅读与研究', en: 'Read & research' },
-  { id: 'doubao', name: '豆包', mark: '豆', url: 'https://www.doubao.com/', zh: '日常灵感', en: 'Everyday ideas' },
-  { id: 'grok', name: 'Grok', mark: '✳', url: 'https://grok.com/', zh: '实时探索', en: 'Explore the now' },
-  { id: 'gemini', name: 'Gemini', mark: '✦', url: 'https://gemini.google.com/', zh: '多元创想', en: 'Imagine more' },
+  { id: 'chatgpt', name: 'ChatGPT', icon: '/ai-icons/chatgpt.svg', url: 'https://chatgpt.com/', zh: '对话与创作', en: 'Ideas & writing' },
+  { id: 'deepseek', name: 'DeepSeek', icon: '/ai-icons/deepseek.svg', url: 'https://chat.deepseek.com/', zh: '深度思考', en: 'Deep reasoning' },
+  { id: 'chatglm', name: '智谱清言', icon: '/ai-icons/chatglm.png', url: 'https://chatglm.cn/', zh: '灵感与探索', en: 'Explore & create' },
+  { id: 'yuanbao', name: '元宝', icon: '/ai-icons/yuanbao.png', url: 'https://yuanbao.tencent.com/', zh: '搜索与问答', en: 'Search & answers' },
+  { id: 'kimi', name: 'Kimi', icon: '/ai-icons/kimi.png', url: 'https://www.kimi.com/', zh: '阅读与研究', en: 'Read & research' },
+  { id: 'doubao', name: '豆包', icon: '/ai-icons/doubao.png', url: 'https://www.doubao.com/', zh: '日常灵感', en: 'Everyday ideas' },
+  { id: 'grok', name: 'Grok', icon: '/ai-icons/grok.png', url: 'https://grok.com/', zh: '实时探索', en: 'Explore the now' },
+  { id: 'gemini', name: 'Gemini', icon: '/ai-icons/gemini.png', url: 'https://gemini.google.com/', zh: '多元创想', en: 'Imagine more' },
 ] as const;
 
 export function AiPanel() {
@@ -103,7 +103,7 @@ export function AiPanel() {
               key={site.id}
               style={{ '--ai-index': index } as CSSProperties}
             >
-              <span className="ai-link__mark" aria-hidden="true">{site.mark}</span>
+              <span className="ai-link__mark" aria-hidden="true"><img src={site.icon} alt="" width="29" height="29" draggable={false} /></span>
               <span className="ai-link__copy">
                 <strong>{site.name}</strong>
                 <small>{lang === 'zh' ? site.zh : site.en}</small>
