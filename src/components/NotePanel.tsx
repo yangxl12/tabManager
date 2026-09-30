@@ -44,6 +44,7 @@ export function NotePanel() {
   const setNoteHtml = useStore((s) => s.setNoteHtml);
 
   const editorRef = useRef<HTMLDivElement>(null);
+  const paneRef = useRef<HTMLElement>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   const dragging = useRef(false);
   const resizeFrame = useRef<number | null>(null);
@@ -218,6 +219,14 @@ export function NotePanel() {
     if (noteOpen && !wasOpen.current) {
       // 手动展开时光标直接进编辑器；记忆态的首帧展开不抢焦点
       editorRef.current?.focus();
+      // 窄屏下便签是页面底部的抽屉，主区高度不够时 .main 会变成可滚动容器：
+      // 不把它带进视野的话，用户点了「便签」看到的还是书签面板 —— 跟没反应一样。
+      // 延迟到高度过渡（0.26s）跑完再滚，否则滚的是还没撑开的位置。
+      const timer = window.setTimeout(() => {
+        paneRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }, 320);
+      wasOpen.current = noteOpen;
+      return () => window.clearTimeout(timer);
     }
     wasOpen.current = noteOpen;
   }, [noteOpen]);
@@ -269,6 +278,7 @@ export function NotePanel() {
 
   return (
     <aside
+      ref={paneRef}
       className={`note-pane${noteOpen ? ' is-open' : ''}`}
       style={{ '--note-w': `${noteWidth}px` } as React.CSSProperties}
       aria-label={t('note.title')}

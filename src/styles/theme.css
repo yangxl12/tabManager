@@ -2450,11 +2450,19 @@ body.resizing .note-pane {
 }
 
 @media (max-width: 1380px) {
+  /* 窄屏下高度是最稀缺的资源：原来把 .workspace 的剩余高度按 46% 切给标签面板，
+     窗口一矮（再被顶部 AI 横条吃掉 112px）每个模块就只剩几十像素——标签网格连一张
+     卡片都放不下、书签网格只露半行，整个面板等于废掉。
+     改成「min-height 保底 + .main 纵向滚动」：高度够时仍按比例撑满，高度不够时
+     每个模块保住自己的可用高度，多出来的部分交给滚动消化。 */
   .main {
     flex-direction: column;
     gap: 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
   .ai-pane {
+    flex: none;
     width: 100%;
     height: 112px;
   }
@@ -2479,18 +2487,64 @@ body.resizing .note-pane {
   }
   .ai-link { width: 163px; min-height: 0; padding: 6px 8px; }
   .ai-pane > .splitter { display: none; }
-  .workspace {
-    flex-direction: column;
-    gap: 12px;
-  }
-  .panel--tabs {
-    width: auto;
-    height: 46%;
-  }
   .splitter {
     display: none;
   }
   .pane-tree {
     width: 186px;
+  }
+}
+
+/* 1024px 以上还放得下左右并排：标签 / 书签继续并排，各自拿满剩余高度。
+   拆成独立断点是刻意的 ——「AI 转横条 / 便签转抽屉」是骨架形态，
+   「两块面板是否上下堆叠」是高度分配。原来一刀切在 1380px，
+   于是 1100~1380px 这种明明塞得下并排的窗口也被压成上下两块，
+   白白丢掉一半可用高度。 */
+@media (min-width: 1024px) and (max-width: 1380px) {
+  .workspace {
+    flex-direction: row;
+    /* 拖拽条在窄屏下被收起，并排间距改由下面的 margin-left 提供（13px，与拖拽条同宽） */
+    gap: 0;
+    /* 窗口极矮时也不让两块面板被压没，超出部分走 .main 滚动 */
+    min-height: 300px;
+  }
+  .panel--tabs {
+    width: 44%;
+    flex: none;
+  }
+  .panel--bm {
+    flex: 1;
+    margin-left: 13px;
+  }
+}
+
+/* 1024px 以下：真的塞不下并排了，改上下堆叠。
+   这里绝不能再按百分比分高度 —— 窗口一矮每个模块就只剩几十像素。
+   用 min-height 保底，不够的部分交给 .main 纵向滚动。 */
+@media (max-width: 1023px) {
+  .workspace {
+    /* 两块面板的保底高度（子元素继承），.workspace 的 min-height 直接由它俩算出来 */
+    --tabs-min: 380px;
+    --bm-min: 440px;
+    /* 高度富余时吃满剩余空间，不够时守住下面的 min-height，把溢出交给 .main 滚动。
+       min-height 必须显式写成「两块面板保底高度之和 + 间距」：
+       给 0 会让它自己被压扁、把 tabs / bm 的溢出内容盖到便签抽屉身上；
+       给 auto / min-content 又会按内容的 max-content 撑开，数据一多页面就无限长。 */
+    flex: 1 1 auto;
+    min-height: calc(var(--tabs-min) + var(--bm-min) + 12px);
+    flex-direction: column;
+    gap: 12px;
+  }
+  .panel--tabs {
+    width: auto;
+    height: auto;
+    flex: 1 1 46%;
+    /* 快捷访问区（约 150px）+ 标题行 + 至少两行卡片 */
+    min-height: var(--tabs-min);
+  }
+  .panel--bm {
+    flex: 1 1 54%;
+    /* 书签树侧栏 186px 宽 + 网格至少两行卡片 */
+    min-height: var(--bm-min);
   }
 }
